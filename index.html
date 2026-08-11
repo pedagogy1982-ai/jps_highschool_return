@@ -197,7 +197,13 @@
 </header>
 <nav class="tabbar hidden" id="tabbar"></nav>
 
-<div class="container narrow" id="loginScreen">
+<div class="container narrow" id="loadingScreen">
+  <div class="card" style="text-align:center;">
+    <p class="muted">불러오는 중...</p>
+  </div>
+</div>
+
+<div class="container narrow hidden" id="loginScreen">
   <div class="card">
     <h2 style="text-align:center; font-size:20px;">🏫 지평선고등학교 귀교 확인</h2>
     <div class="role-tabs">
@@ -348,12 +354,26 @@
   <div id="adminTeachersWrap" class="hidden"></div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
 /* =====================================================================
-   데이터 저장: 우선 로컬(localStorage) 버전으로 동작합니다.
-   GitHub Pages 배포 후 여러 기기 간 실시간 공유가 필요하면 이 데이터
-   접근 함수들만 Firebase Firestore 호출로 교체하면 됩니다.
+   데이터 저장: Firebase Firestore를 사용해 여러 기기 간 실시간으로 공유됩니다.
+   (계정/현황 데이터만 Firestore 사용, 로그인 세션·저장된 로그인정보·백업은
+   기기별 localStorage에 그대로 둡니다.)
    ===================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCuM7R7IkP-IE7y9t4Nl436rtDsHC9CymE",
+  authDomain: "jps-return.firebaseapp.com",
+  projectId: "jps-return",
+  storageBucket: "jps-return.firebasestorage.app",
+  messagingSenderId: "614405156341",
+  appId: "1:614405156341:web:b89c00cc9124cdb4fe84bc"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 const LS = {
   students: 'jps_students',
   teachers: 'jps_teachers',
@@ -366,25 +386,124 @@ const LS = {
   backupTimestamp: 'jps_accounts_backup_ts'
 };
 
+// students/teachers/admins/status는 메모리 캐시 + Firestore 실시간 리스너로 관리됩니다.
+const cache = { students: null, teachers: null, admins: null, status: {} };
+const statusListeners = {};
+
 function loadJson(key, fallback) {
+  if (key === LS.students) return cache.students !== null ? cache.students : fallback;
+  if (key === LS.teachers) return cache.teachers !== null ? cache.teachers : fallback;
+  if (key === LS.admins) return cache.admins !== null ? cache.admins : fallback;
+  if (key.startsWith(LS.statusPrefix)) {
+    const dateKey = key.slice(LS.statusPrefix.length);
+    ensureStatusListener(dateKey);
+    return cache.status[dateKey] || fallback;
+  }
   const raw = localStorage.getItem(key);
   return raw ? JSON.parse(raw) : fallback;
 }
-function saveJson(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+function saveJson(key, val) {
+  if (key === LS.students) { cache.students = val; db.collection('meta').doc('students').set({ list: val }); return; }
+  if (key === LS.teachers) { cache.teachers = val; db.collection('meta').doc('teachers').set({ list: val }); return; }
+  if (key === LS.admins) { cache.admins = val; db.collection('meta').doc('admins').set({ list: val }); return; }
+  if (key.startsWith(LS.statusPrefix)) {
+    const dateKey = key.slice(LS.statusPrefix.length);
+    cache.status[dateKey] = val;
+    db.collection('status').doc(dateKey).set(val);
+    return;
+  }
+  localStorage.setItem(key, JSON.stringify(val));
+}
 
-function seedDefaultStudents() {
-  saveJson(LS.students, [
-    { id: 'st1', loginId: '10101', pw: '0000', grade: 1, ban: 1, number: 1, name: '강민준' },
-    { id: 'st2', loginId: '10102', pw: '0000', grade: 1, ban: 1, number: 2, name: '강혜현' },
-    { id: 'st3', loginId: '20101', pw: '0000', grade: 2, ban: 1, number: 1, name: '김도윤' },
-  ]);
+// 특정 날짜의 귀교 현황 문서를 실시간 구독합니다. (다른 기기의 제출이 즉시 반영됨)
+function ensureStatusListener(dateKey) {
+  if (statusListeners[dateKey]) return;
+  statusListeners[dateKey] = db.collection('status').doc(dateKey).onSnapshot(snap => {
+    cache.status[dateKey] = snap.exists ? snap.data() : {};
+    onStatusUpdate(dateKey);
+  });
 }
-function seedDefaultTeachers() {
-  saveJson(LS.teachers, [{ id: 't1', loginId: 'teacher', pw: '0000', name: '김교사' }]);
+function onStatusUpdate(dateKey) {
+  const session = getSession();
+  if (!session) return;
+  if (session.role === 'student' && dateKey === studentViewDate) renderStudentScreen(session.userId);
+  else if (session.role === 'teacher' && dateKey === viewDateKey) renderDashAll('teacher');
+  else if (session.role === 'admin' && dateKey === viewDateKey && document.getElementById('adminTab-dash')?.classList.contains('active')) renderDashAll('adminDash');
 }
+// 계정 목록(학생/교사) 변경이 실시간으로 들어왔을 때, 현재 보고 있는 화면만 갱신합니다.
+// (renderApp() 전체를 다시 부르면 관리자가 다른 탭을 보던 중 대시보드 탭으로 튕기므로 지양)
+function onAccountsUpdate(key) {
+  const session = getSession();
+  if (!session) return;
+  if (key === 'students') {
+    if (session.role === 'student') renderStudentScreen(session.userId);
+    else if (session.role === 'teacher') renderDashAll('teacher');
+    else if (session.role === 'admin') {
+      const activeTab = document.querySelector('#adminScreen .tabbar .chip.active')?.id?.replace('adminTab-', '');
+      if (activeTab === 'dash') renderDashAll('adminDash');
+      else if (activeTab === 'students') renderStudentAccountTable();
+    }
+  } else if (key === 'teachers') {
+    if (session.role === 'admin') {
+      const activeTab = document.querySelector('#adminScreen .tabbar .chip.active')?.id?.replace('adminTab-', '');
+      if (activeTab === 'teachers') renderTeacherAccountTable();
+    }
+  }
+}
+
 function seedDefaultAdmins() {
-  saveJson(LS.admins, [{ id: 'a1', loginId: 'admin', pw: 'admin1234', name: '관리자' }]);
+  return [{ id: 'a1', loginId: 'admin', pw: 'admin1234', name: '관리자' }];
 }
+
+// 배포된 저장소에 함께 커밋된 2026student.csv / 2026teacher.csv를 읽어
+// Firestore가 비어있을 때(최초 1회) 실제 명단으로 자동 시드합니다.
+async function fetchCsvRows(path) {
+  try {
+    const res = await fetch(path);
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  } catch (e) {
+    return null;
+  }
+}
+async function seedStudentsFromCsv() {
+  const lines = await fetchCsvRows('./2026student.csv');
+  const list = [];
+  if (lines) {
+    lines.forEach((line, i) => {
+      const [grade, ban, number, name, loginId, pw] = line.split(',').map(v => v?.trim());
+      if (!grade || !ban || !number || !name || !loginId || !pw) return;
+      if (isNaN(parseInt(grade, 10)) || isNaN(parseInt(ban, 10)) || isNaN(parseInt(number, 10))) return; // 헤더 행
+      list.push({ id: 'st_' + i, grade: parseInt(grade, 10), ban: parseInt(ban, 10), number: parseInt(number, 10), name, loginId, pw });
+    });
+  }
+  if (!list.length) {
+    list.push(
+      { id: 'st1', loginId: '10101', pw: '0000', grade: 1, ban: 1, number: 1, name: '강민준' },
+      { id: 'st2', loginId: '10102', pw: '0000', grade: 1, ban: 1, number: 2, name: '강혜현' },
+      { id: 'st3', loginId: '20101', pw: '0000', grade: 2, ban: 1, number: 1, name: '김도윤' }
+    );
+  }
+  return list;
+}
+async function seedTeachersFromCsv() {
+  const lines = await fetchCsvRows('./2026teacher.csv');
+  const list = [];
+  if (lines) {
+    lines.forEach((line, i) => {
+      const [name, loginId, pw] = line.split(',').map(v => v?.trim());
+      if (!name || !loginId || !pw) return;
+      if (name === '이름' && loginId === '아이디') return; // 헤더 행
+      list.push({ id: 'te_' + i, name, loginId, pw });
+    });
+  }
+  if (!list.length) {
+    list.push({ id: 't1', loginId: 'teacher', pw: '0000', name: '김교사' });
+  }
+  return list;
+}
+
 function backupAccounts() {
   saveJson(LS.backupStudents, loadJson(LS.students, []));
   saveJson(LS.backupTeachers, loadJson(LS.teachers, []));
@@ -398,10 +517,7 @@ function restoreStudentBackup() {
     alert('학생 계정이 백업에서 복원되었습니다.');
     return;
   }
-  if (!confirm('학생 계정 백업이 없습니다. 기본 계정으로 복원하시겠습니까?')) return;
-  seedDefaultStudents();
-  renderAdminStudents();
-  alert('학생 기본 계정이 복원되었습니다.');
+  alert('학생 계정 백업이 없습니다.');
 }
 function restoreTeacherBackup() {
   const backup = loadJson(LS.backupTeachers, null);
@@ -411,18 +527,49 @@ function restoreTeacherBackup() {
     alert('교사 계정이 백업에서 복원되었습니다.');
     return;
   }
-  if (!confirm('교사 계정 백업이 없습니다. 기본 계정으로 복원하시겠습니까?')) return;
-  seedDefaultTeachers();
-  renderAdminTeachers();
-  alert('교사 기본 계정이 복원되었습니다.');
+  alert('교사 계정 백업이 없습니다.');
 }
-function seedDefaults() {
-  if (!localStorage.getItem(LS.students)) seedDefaultStudents();
-  if (!localStorage.getItem(LS.teachers)) seedDefaultTeachers();
-  if (!localStorage.getItem(LS.admins)) seedDefaultAdmins();
+
+// Firebase 익명 로그인 후 Firestore에서 계정 데이터를 불러오고(없으면 CSV로 최초 시드),
+// 실시간 리스너를 연결한 뒤 화면을 렌더링합니다.
+async function initAppData() {
+  const loadingEl = document.getElementById('loadingScreen');
+  await new Promise(resolve => {
+    let done = false;
+    firebase.auth().onAuthStateChanged(user => { if (user && !done) { done = true; resolve(); } });
+    firebase.auth().signInAnonymously().catch(err => {
+      console.error('Firebase 익명 로그인 실패:', err);
+      if (loadingEl) loadingEl.innerHTML = '<div class="card"><p class="error-msg">서버 연결에 실패했습니다. 잠시 후 새로고침 해주세요.</p></div>';
+    });
+  });
+
+  const metaDefs = [
+    { key: 'students', doc: 'students', seed: seedStudentsFromCsv },
+    { key: 'teachers', doc: 'teachers', seed: seedTeachersFromCsv },
+    { key: 'admins', doc: 'admins', seed: async () => seedDefaultAdmins() }
+  ];
+
+  for (const def of metaDefs) {
+    const ref = db.collection('meta').doc(def.doc);
+    const snap = await ref.get();
+    if (snap.exists) {
+      cache[def.key] = snap.data().list || [];
+    } else {
+      const seeded = await def.seed();
+      cache[def.key] = seeded;
+      await ref.set({ list: seeded });
+    }
+    ref.onSnapshot(s => {
+      if (!s.exists) return;
+      cache[def.key] = s.data().list || [];
+      onAccountsUpdate(def.key);
+    });
+  }
+
   backupAccounts();
+  if (loadingEl) loadingEl.classList.add('hidden');
+  renderApp();
 }
-seedDefaults();
 
 /* ===================== 날짜 유틸 ===================== */
 function todayKey() {
@@ -438,9 +585,12 @@ let viewDateKey = todayKey();
 function loadStatus(dateKey) { return loadJson(LS.statusPrefix + dateKey, {}); }
 function saveStatus(dateKey, obj) { saveJson(LS.statusPrefix + dateKey, obj); }
 function setStudentStatus(dateKey, studentId, patch) {
+  // 학생 수백 명이 비슷한 시각에 동시 제출할 수 있으므로, 문서 전체를 덮어쓰지 않고
+  // 해당 학생 필드만 병합(merge) 저장해 다른 학생의 동시 제출을 덮어쓰지 않도록 합니다.
   const obj = loadStatus(dateKey);
-  obj[studentId] = { ...(obj[studentId] || {}), ...patch };
-  saveStatus(dateKey, obj);
+  const merged = { ...(obj[studentId] || {}), ...patch };
+  cache.status[dateKey] = { ...obj, [studentId]: merged };
+  db.collection('status').doc(dateKey).set({ [studentId]: merged }, { merge: true });
 }
 
 /* ===================== 세션 ===================== */
@@ -917,6 +1067,7 @@ function uploadCsv() {
     lines.forEach(line => {
       const [grade, ban, number, name, loginId, pw] = line.split(',').map(v => v?.trim());
       if (!grade || !ban || !number || !name || !loginId || !pw) { skipped++; return; }
+      if (isNaN(parseInt(grade,10)) || isNaN(parseInt(ban,10)) || isNaN(parseInt(number,10))) { return; } // 헤더 행은 건너뛰고 집계하지 않음
       if (students.some(s => s.loginId === loginId)) { skipped++; return; }
       students.push({ id: 'st_' + Date.now() + '_' + added, grade: parseInt(grade,10), ban: parseInt(ban,10), number: parseInt(number,10), name, loginId, pw });
       added++;
@@ -943,6 +1094,7 @@ function uploadTeacherCsv() {
     lines.forEach(line => {
       const [name, loginId, pw] = line.split(',').map(v => v?.trim());
       if (!name || !loginId || !pw) { skipped++; return; }
+      if (name === '이름' && loginId === '아이디') { return; } // 헤더 행은 건너뛰고 집계하지 않음
       if (teachers.some(t => t.loginId === loginId)) { skipped++; return; }
       teachers.push({ id: 'te_' + Date.now() + '_' + added, name, loginId, pw });
       added++;
@@ -1049,7 +1201,6 @@ function renderApp() {
   [loginScreen, studentScreen, teacherScreen, adminScreen].forEach(el => el.classList.add('hidden'));
   header.classList.add('hidden');
   tabbar.classList.add('hidden');
-  document.querySelector('.container.narrow')?.classList.remove('hidden');
 
   if (!session) {
     document.getElementById('loginId').value = '';
@@ -1060,7 +1211,6 @@ function renderApp() {
   }
 
   loginScreen.classList.add('hidden');
-  document.querySelector('.container.narrow').classList.add('hidden');
   header.classList.remove('hidden');
 
   if (session.role === 'student') {
@@ -1082,7 +1232,7 @@ function renderApp() {
   }
 }
 
-renderApp();
+initAppData();
 </script>
 </body>
 </html>
