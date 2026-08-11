@@ -6,32 +6,20 @@ on:
       - main
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v1
         with:
-          node-version: '20'
+          path: '.'
 
-      - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then npm ci; fi
-          if [ -f package.json ] && [ ! -f package-lock.json ] && [ ! -f yarn.lock ]; then npm install; fi
-
-      - name: Build site
-        run: |
-          if [ -f package.json ]; then
-            if npm run | grep -q "build"; then npm run build; fi
-          fi
-
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: 
-            ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ./
+        uses: actions/deploy-pages@v1
