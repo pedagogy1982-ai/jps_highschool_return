@@ -360,7 +360,10 @@ const LS = {
   admins: 'jps_admins',
   statusPrefix: 'jps_status_', // + dateKey
   session: 'jps_session',
-  cred: 'jps_saved_cred'
+  cred: 'jps_saved_cred',
+  backupStudents: 'jps_students_backup',
+  backupTeachers: 'jps_teachers_backup',
+  backupTimestamp: 'jps_accounts_backup_ts'
 };
 
 function loadJson(key, fallback) {
@@ -369,20 +372,55 @@ function loadJson(key, fallback) {
 }
 function saveJson(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
+function seedDefaultStudents() {
+  saveJson(LS.students, [
+    { id: 'st1', loginId: '10101', pw: '0000', grade: 1, ban: 1, number: 1, name: '강민준' },
+    { id: 'st2', loginId: '10102', pw: '0000', grade: 1, ban: 1, number: 2, name: '강혜현' },
+    { id: 'st3', loginId: '20101', pw: '0000', grade: 2, ban: 1, number: 1, name: '김도윤' },
+  ]);
+}
+function seedDefaultTeachers() {
+  saveJson(LS.teachers, [{ id: 't1', loginId: 'teacher', pw: '0000', name: '김교사' }]);
+}
+function seedDefaultAdmins() {
+  saveJson(LS.admins, [{ id: 'a1', loginId: 'admin', pw: 'admin1234', name: '관리자' }]);
+}
+function backupAccounts() {
+  saveJson(LS.backupStudents, loadJson(LS.students, []));
+  saveJson(LS.backupTeachers, loadJson(LS.teachers, []));
+  saveJson(LS.backupTimestamp, `${todayKey()} ${nowTimeStr()}`);
+}
+function restoreStudentBackup() {
+  const backup = loadJson(LS.backupStudents, null);
+  if (backup && backup.length) {
+    saveJson(LS.students, backup);
+    renderAdminStudents();
+    alert('학생 계정이 백업에서 복원되었습니다.');
+    return;
+  }
+  if (!confirm('학생 계정 백업이 없습니다. 기본 계정으로 복원하시겠습니까?')) return;
+  seedDefaultStudents();
+  renderAdminStudents();
+  alert('학생 기본 계정이 복원되었습니다.');
+}
+function restoreTeacherBackup() {
+  const backup = loadJson(LS.backupTeachers, null);
+  if (backup && backup.length) {
+    saveJson(LS.teachers, backup);
+    renderAdminTeachers();
+    alert('교사 계정이 백업에서 복원되었습니다.');
+    return;
+  }
+  if (!confirm('교사 계정 백업이 없습니다. 기본 계정으로 복원하시겠습니까?')) return;
+  seedDefaultTeachers();
+  renderAdminTeachers();
+  alert('교사 기본 계정이 복원되었습니다.');
+}
 function seedDefaults() {
-  if (!localStorage.getItem(LS.students)) {
-    saveJson(LS.students, [
-      { id: 'st1', loginId: '10101', pw: '0000', grade: 1, ban: 1, number: 1, name: '강민준' },
-      { id: 'st2', loginId: '10102', pw: '0000', grade: 1, ban: 1, number: 2, name: '강혜현' },
-      { id: 'st3', loginId: '20101', pw: '0000', grade: 2, ban: 1, number: 1, name: '김도윤' },
-    ]);
-  }
-  if (!localStorage.getItem(LS.teachers)) {
-    saveJson(LS.teachers, [{ id: 't1', loginId: 'teacher', pw: '0000', name: '김교사' }]);
-  }
-  if (!localStorage.getItem(LS.admins)) {
-    saveJson(LS.admins, [{ id: 'a1', loginId: 'admin', pw: 'admin1234', name: '관리자' }]);
-  }
+  if (!localStorage.getItem(LS.students)) seedDefaultStudents();
+  if (!localStorage.getItem(LS.teachers)) seedDefaultTeachers();
+  if (!localStorage.getItem(LS.admins)) seedDefaultAdmins();
+  backupAccounts();
 }
 seedDefaults();
 
@@ -783,6 +821,10 @@ function renderAdminStudents() {
   wrap.innerHTML = `
     <div class="card">
       <h2>학생 계정 추가</h2>
+      <div class="row" style="align-items:center; gap:8px; margin-bottom:12px;">
+        <button class="secondary small" onclick="backupAccounts()">💾 계정 백업 저장</button>
+        <button class="secondary small" onclick="restoreStudentBackup()">🔄 학생 계정 복원</button>
+      </div>
       <div class="row">
         <div class="field" style="flex:1; margin-bottom:0;"><label>학년</label><input id="newStGrade" type="number" min="1" max="3"></div>
         <div class="field" style="flex:1; margin-bottom:0;"><label>반</label><input id="newStBan" type="number" min="1"></div>
@@ -843,6 +885,7 @@ function addStudentAccount() {
   errEl.textContent = '';
   students.push({ id: 'st_' + Date.now(), grade, ban, number, name, loginId, pw });
   saveJson(LS.students, students);
+  backupAccounts();
   ['newStGrade','newStBan','newStNumber','newStName','newStLoginId','newStPw'].forEach(id => document.getElementById(id).value = '');
   renderStudentAccountTable();
 }
@@ -852,10 +895,12 @@ function updateStudentField(id, field, value) {
   if (!s) return;
   s[field] = ['grade','ban','number'].includes(field) ? (parseInt(value,10) || 1) : value.trim();
   saveJson(LS.students, students);
+  backupAccounts();
 }
 function deleteStudentAccount(id) {
   if (!confirm('이 학생 계정을 삭제하시겠습니까?')) return;
   saveJson(LS.students, loadJson(LS.students, []).filter(s => s.id !== id));
+  backupAccounts();
   renderStudentAccountTable();
 }
 function uploadCsv() {
@@ -877,9 +922,36 @@ function uploadCsv() {
       added++;
     });
     saveJson(LS.students, students);
+    backupAccounts();
     errEl.style.color = 'var(--green)';
     errEl.textContent = `${added}명 추가됨 (${skipped}건 건너뜀 - 중복 아이디 또는 형식 오류)`;
     renderStudentAccountTable();
+  };
+  reader.readAsText(fileInput.files[0], 'UTF-8');
+}
+function uploadTeacherCsv() {
+  const fileInput = document.getElementById('teacherCsvFile');
+  const errEl = document.getElementById('teacherCsvError');
+  errEl.textContent = '';
+  if (!fileInput.files.length) { errEl.textContent = '파일을 선택해주세요.'; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const teachers = loadJson(LS.teachers, []);
+    let added = 0, skipped = 0;
+    lines.forEach(line => {
+      const [name, loginId, pw] = line.split(',').map(v => v?.trim());
+      if (!name || !loginId || !pw) { skipped++; return; }
+      if (teachers.some(t => t.loginId === loginId)) { skipped++; return; }
+      teachers.push({ id: 'te_' + Date.now() + '_' + added, name, loginId, pw });
+      added++;
+    });
+    saveJson(LS.teachers, teachers);
+    backupAccounts();
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = `${added}명 추가됨 (${skipped}건 건너뜀 - 중복 아이디 또는 형식 오류)`;
+    renderTeacherAccountTable();
   };
   reader.readAsText(fileInput.files[0], 'UTF-8');
 }
@@ -889,6 +961,10 @@ function renderAdminTeachers() {
   wrap.innerHTML = `
     <div class="card">
       <h2>교사 계정 추가</h2>
+      <div class="row" style="align-items:center; gap:8px; margin-bottom:12px;">
+        <button class="secondary small" onclick="backupAccounts()">💾 계정 백업 저장</button>
+        <button class="secondary small" onclick="restoreTeacherBackup()">🔄 교사 계정 복원</button>
+      </div>
       <div class="row">
         <div class="field" style="flex:2; margin-bottom:0;"><label>이름</label><input id="newTeName"></div>
         <div class="field" style="flex:1.5; margin-bottom:0;"><label>아이디</label><input id="newTeLoginId"></div>
@@ -896,6 +972,12 @@ function renderAdminTeachers() {
         <div><label>&nbsp;</label><button onclick="addTeacherAccount()">추가</button></div>
       </div>
       <div class="error-msg" id="addTeError"></div>
+      <p class="muted" style="margin-top:14px;">CSV 일괄 업로드 (형식: 이름,아이디,비밀번호 — 한 줄에 한 명)</p>
+      <div class="row">
+        <input type="file" id="teacherCsvFile" accept=".csv,text/csv" style="max-width:280px;">
+        <button class="secondary" onclick="uploadTeacherCsv()">업로드</button>
+      </div>
+      <div class="error-msg" id="teacherCsvError"></div>
     </div>
     <div class="card">
       <h2>교사 계정 목록</h2>
@@ -931,6 +1013,7 @@ function addTeacherAccount() {
   errEl.textContent = '';
   teachers.push({ id: 'te_' + Date.now(), name, loginId, pw });
   saveJson(LS.teachers, teachers);
+  backupAccounts();
   ['newTeName','newTeLoginId','newTePw'].forEach(id => document.getElementById(id).value = '');
   renderTeacherAccountTable();
 }
@@ -940,10 +1023,12 @@ function updateTeacherField(id, field, value) {
   if (!t) return;
   t[field] = value.trim();
   saveJson(LS.teachers, teachers);
+  backupAccounts();
 }
 function deleteTeacherAccount(id) {
   if (!confirm('이 교사 계정을 삭제하시겠습니까?')) return;
   saveJson(LS.teachers, loadJson(LS.teachers, []).filter(t => t.id !== id));
+  backupAccounts();
   renderTeacherAccountTable();
 }
 
