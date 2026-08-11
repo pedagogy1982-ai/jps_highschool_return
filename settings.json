@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"\\(Get-Content -Raw '귀교체크.html'\\) -replace '지평선중', '지평선고등학교' | Set-Content -Encoding utf8 '귀교체크.html'\")"
+    ]
+  }
+}

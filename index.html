@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>지평선고등학교 귀교 확인</title>
+<style>
+  :root {
+    --navy: #16213e;
+    --navy-dark: #0f1830;
+    --accent: #2563eb;
+    --green: #16a34a;
+    --red: #dc2626;
+    --orange: #ea580c;
+    --purple: #7c3aed;
+    --bg: #f3f5f9;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--navy);
+    color: white;
+    padding: 14px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  header button {
+    background: rgba(255,255,255,0.12);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+  header button:hover { background: rgba(255,255,255,0.22); }
+  nav.tabbar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    padding: 0 16px;
+  }
+  nav.tabbar button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    padding: 14px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+  }
+  nav.tabbar button.active {
+    color: var(--navy);
+    border-bottom-color: var(--navy);
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+  .container.narrow { max-width: 480px; padding-top: 60px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  h2 { font-size: 16px; margin: 0 0 16px; }
+  input, select, textarea {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    width: 100%;
+    font-family: inherit;
+  }
+  label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .field { margin-bottom: 14px; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:hover { filter: brightness(0.95); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: white; color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: var(--red); }
+  button.small { padding: 6px 10px; font-size: 12px; }
+  button.pill { border-radius: 999px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .role-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+  .role-tabs button { flex: 1; background: #eef2f7; color: var(--muted); }
+  .role-tabs button.active { background: var(--navy); color: white; }
+  .chip { background: white; border: 1px solid var(--border); color: var(--text); padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+  .chip.active { background: #14532d; color: white; border-color: #14532d; }
+  .status-chip { background: white; border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; flex: 1; min-width: 90px; text-align: center; }
+  .status-chip.active { background: var(--navy); color: white; border-color: var(--navy); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .table-wrap { overflow-x: auto; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .badge.s-미도착 { background: #fee2e2; color: var(--red); }
+  .badge.s-귀교 { background: #dcfce7; color: var(--green); }
+  .badge.s-지각 { background: #ffedd5; color: var(--orange); }
+  .badge.s-미귀교 { background: #f3e8ff; color: var(--purple); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+  .stat .num { font-size: 24px; font-weight: 700; }
+  .stat .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .search-box-wrap { background: #fff8ef; border: 1px solid #fcd9a8; border-left: 4px solid var(--orange); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
+  .search-box-wrap label { color: var(--orange); font-weight: 600; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .error-msg { color: var(--red); font-size: 13px; margin-top: 6px; }
+  .status-btn-group button { flex: 1; padding: 16px; font-size: 15px; }
+  .status-btn-group button.picked { outline: 3px solid var(--navy); outline-offset: 2px; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; }
+  .checkbox-row input { width: auto; }
+  .setup-card code {
+    display: block; background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 8px;
+    font-size: 12px; white-space: pre-wrap; overflow-x: auto; margin: 10px 0;
+  }
+  .setup-card ol { padding-left: 20px; line-height: 1.8; }
+
+  .profile-card { text-align: center; }
+  .avatar-circle {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg,#134e4a,#1e3a5f);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; margin: 0 auto 14px;
+  }
+  .profile-card .p-name { font-size: 20px; font-weight: 700; }
+  .profile-card .p-class { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .date-box {
+    border: 1px solid var(--border); border-radius: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .date-box input[type="date"] {
+    border: none; font-size: 17px; font-weight: 700; padding: 14px 16px;
+    background: transparent; cursor: pointer;
+  }
+  .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .status-option {
+    border: 2px solid var(--border); border-radius: 12px; background: white;
+    padding: 18px 8px; text-align: center; cursor: pointer;
+  }
+  .status-option .icon { font-size: 26px; margin-bottom: 8px; }
+  .status-option .label { font-weight: 700; font-size: 15px; }
+  .status-option .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .status-option.picked { border-color: var(--navy); background: #eef2ff; }
+  .submit-btn-wrap button { width: 100%; background: var(--orange); padding: 16px; font-size: 16px; border-radius: 10px; }
+
+  @media (max-width: 480px) {
+    .container { padding: 14px 12px 40px; }
+    .container.narrow { padding-top: 28px; }
+    header { padding: 12px 16px; }
+    header h1 { font-size: 14px; }
+    header button { padding: 8px 12px; font-size: 13px; }
+    .card { padding: 16px; }
+    nav.tabbar button { padding: 12px 10px; font-size: 13px; }
+    .role-tabs button { padding: 10px 4px; font-size: 13px; }
+    .status-grid { grid-template-columns: repeat(2, 1fr); }
+    .status-option { padding: 14px 6px; }
+    .status-option .icon { font-size: 22px; margin-bottom: 6px; }
+    .status-option .label { font-size: 14px; }
+    .stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .stat { padding: 10px; }
+    .stat .num { font-size: 20px; }
+    .avatar-circle { width: 56px; height: 56px; font-size: 26px; }
+    .profile-card .p-name { font-size: 18px; }
+    table { font-size: 12.5px; }
+    th, td { padding: 8px 6px; }
+    .chip { padding: 6px 12px; font-size: 12.5px; }
+    .status-chip { padding: 7px 10px; font-size: 12.5px; min-width: 72px; }
+  }
+</style>
+</head>
+<body>
+
+<header id="appHeader" class="hidden">
+  <h1 id="headerTitle">🏫 지평선고등학교 귀교 확인</h1>
+  <button onclick="logout()">로그아웃</button>
+</header>
+<nav class="tabbar hidden" id="tabbar"></nav>
+
+<div class="container narrow" id="loginScreen">
+  <div class="card">
+    <h2 style="text-align:center; font-size:20px;">🏫 지평선고등학교 귀교 확인</h2>
+    <div class="role-tabs">
+      <button id="roleTabStudent" class="active" onclick="switchRole('student')">학생</button>
+      <button id="roleTabTeacher" onclick="switchRole('teacher')">교사</button>
+      <button id="roleTabAdmin" onclick="switchRole('admin')">관리자</button>
+    </div>
+    <div class="field">
+      <label>아이디</label>
+      <input id="loginId" placeholder="아이디 입력">
+    </div>
+    <div class="field">
+      <label>비밀번호</label>
+      <input id="loginPw" type="password" placeholder="비밀번호 입력">
+    </div>
+    <div class="field checkbox-row">
+      <input type="checkbox" id="saveCred">
+      <label style="margin:0;">로그인 정보 저장</label>
+    </div>
+    <button style="width:100%;" onclick="doLogin()">로그인</button>
+    <div class="error-msg" id="loginError"></div>
+    <p class="muted" id="loginHint" style="margin-top:14px;"></p>
+  </div>
+</div>
+
+<div class="container hidden" id="studentScreen">
+  <div class="card profile-card">
+    <div class="avatar-circle">🧑</div>
+    <div class="p-name" id="studentGreeting"></div>
+    <div class="p-class" id="studentClassLabel"></div>
+    <div class="field" style="text-align:left; margin-top:14px;">
+      <label>📱 연락처 (교사가 확인 시 바로 전화 가능)</label>
+      <div class="row">
+        <input id="studentPhone" placeholder="010-1234-5678" style="flex:1;">
+        <button class="secondary small" onclick="saveMyPhone()">저장</button>
+      </div>
+      <div class="error-msg" id="phoneMsg"></div>
+    </div>
+    <button class="secondary small" style="margin-top:6px;" onclick="togglePwForm()">🔑 비밀번호 변경</button>
+    <div class="hidden" id="pwChangeForm" style="text-align:left; margin-top:14px;">
+      <div class="field">
+        <label>현재 비밀번호</label>
+        <input type="password" id="curPw">
+      </div>
+      <div class="field">
+        <label>새 비밀번호</label>
+        <input type="password" id="newPw1">
+      </div>
+      <div class="field">
+        <label>새 비밀번호 확인</label>
+        <input type="password" id="newPw2">
+      </div>
+      <button style="width:100%;" onclick="changeMyPassword()">변경하기</button>
+      <div class="error-msg" id="pwChangeMsg"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>📅 날짜 선택</label>
+    <div class="date-box">
+      <input type="date" id="studentDateInput" disabled>
+    </div>
+    <p class="muted" style="margin-top:8px; margin-bottom:0;">ⓘ 평일 — 외출/귀가/귀교 입력</p>
+  </div>
+
+  <div class="card">
+    <label>📋 오늘 상태를 선택해주세요</label>
+    <div class="status-grid">
+      <div class="status-option" id="opt-귀교" onclick="pickStatus('귀교')"><div class="icon">🏫</div><div class="label">귀교</div><div class="sub">학교에 있음</div></div>
+      <div class="status-option" id="opt-지각" onclick="pickStatus('지각')"><div class="icon">⏰</div><div class="label">지각</div><div class="sub">늦게 도착</div></div>
+      <div class="status-option" id="opt-미귀교" onclick="pickStatus('미귀교')"><div class="icon">🚫</div><div class="label">미귀교</div><div class="sub">학교 안 옴</div></div>
+    </div>
+    <div class="field hidden" id="etaField" style="margin-top:16px;">
+      <label>예상 도착 시각</label>
+      <input type="time" id="studentEta" step="300">
+    </div>
+    <div class="field" style="margin-top:16px;">
+      <textarea id="studentReason" rows="2" placeholder="사유 (선택)"></textarea>
+    </div>
+    <div class="field hidden" id="returnItemsField">
+      <label>반납 물품 (선택)</label>
+      <input id="studentReturnItems" placeholder="예: 휴대폰, 태블릿 등">
+    </div>
+    <div class="submit-btn-wrap">
+      <button onclick="submitStudentStatus()">제 출</button>
+    </div>
+    <div class="error-msg" id="studentError"></div>
+    <div class="card" id="submittedSummary" style="margin-top:16px; background:#f8fafc;"></div>
+  </div>
+</div>
+
+<div class="container hidden" id="teacherScreen">
+  <div id="teacherDashboard"></div>
+</div>
+
+<div class="container hidden" id="adminScreen">
+  <div class="tabbar" style="background:transparent; border:none; padding:0; margin-bottom:12px;">
+    <button class="chip active" id="adminTab-dash" onclick="switchAdminTab('dash')" style="margin-right:8px;">📊 귀교 현황</button>
+    <button class="chip" id="adminTab-students" onclick="switchAdminTab('students')" style="margin-right:8px;">👥 학생 계정</button>
+    <button class="chip" id="adminTab-teachers" onclick="switchAdminTab('teachers')">🏫 교사 계정</button>
+  </div>
+  <div id="adminDashWrap"></div>
+  <div id="adminStudentsWrap" class="hidden"></div>
+  <div id="adminTeachersWrap" class="hidden"></div>
+</div>
+
+<script>
+/* =====================================================================
+   데이터 저장: 우선 로컬(localStorage) 버전으로 동작합니다.
+   GitHub Pages 배포 후 여러 기기 간 실시간 공유가 필요하면 이 데이터
+   접근 함수들만 Firebase Firestore 호출로 교체하면 됩니다.
+   ===================================================================== */
+const LS = {
+  students: 'jps_students',
+  teachers: 'jps_teachers',
+  admins: 'jps_admins',
+  statusPrefix: 'jps_status_', // + dateKey
+  session: 'jps_session',
+  cred: 'jps_saved_cred'
+};
+
+function loadJson(key, fallback) {
+  const raw = localStorage.getItem(key);
+  return raw ? JSON.parse(raw) : fallback;
+}
+function saveJson(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+function seedDefaults() {
+  if (!localStorage.getItem(LS.students)) {
+    saveJson(LS.students, [
+      { id: 'st1', loginId: '10101', pw: '0000', grade: 1, ban: 1, number: 1, name: '강민준' },
+      { id: 'st2', loginId: '10102', pw: '0000', grade: 1, ban: 1, number: 2, name: '강혜현' },
+      { id: 'st3', loginId: '20101', pw: '0000', grade: 2, ban: 1, number: 1, name: '김도윤' },
+    ]);
+  }
+  if (!localStorage.getItem(LS.teachers)) {
+    saveJson(LS.teachers, [{ id: 't1', loginId: 'teacher', pw: '0000', name: '김교사' }]);
+  }
+  if (!localStorage.getItem(LS.admins)) {
+    saveJson(LS.admins, [{ id: 'a1', loginId: 'admin', pw: 'admin1234', name: '관리자' }]);
+  }
+}
+seedDefaults();
+
+/* ===================== 날짜 유틸 ===================== */
+function todayKey() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+function nowTimeStr() {
+  const n = new Date();
+  return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
+let viewDateKey = todayKey();
+
+function loadStatus(dateKey) { return loadJson(LS.statusPrefix + dateKey, {}); }
+function saveStatus(dateKey, obj) { saveJson(LS.statusPrefix + dateKey, obj); }
+function setStudentStatus(dateKey, studentId, patch) {
+  const obj = loadStatus(dateKey);
+  obj[studentId] = { ...(obj[studentId] || {}), ...patch };
+  saveStatus(dateKey, obj);
+}
+
+/* ===================== 세션 ===================== */
+function getSession() { return loadJson(LS.session, null); }
+function setSession(s) { if (s) saveJson(LS.session, s); else localStorage.removeItem(LS.session); }
+
+/* ===================== 로그인 화면 ===================== */
+let loginRole = 'student';
+function switchRole(role) {
+  loginRole = role;
+  ['student','teacher','admin'].forEach(r => {
+    document.getElementById('roleTab' + capitalize(r)).classList.toggle('active', r === role);
+  });
+  const hints = {
+    student: '학생 계정은 담임/관리자가 발급합니다. (예시 계정: 10101 / 0000)',
+    teacher: '교사 계정은 관리자가 발급합니다. (예시 계정: teacher / 0000)',
+    admin: '최초 관리자 기본 계정: admin / admin1234 (로그인 후 반드시 변경하세요)'
+  };
+  document.getElementById('loginHint').textContent = hints[role];
+  document.getElementById('loginError').textContent = '';
+}
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function doLogin() {
+  const id = document.getElementById('loginId').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+
+  let list, roleKey;
+  if (loginRole === 'student') { list = loadJson(LS.students, []); roleKey = 'student'; }
+  else if (loginRole === 'teacher') { list = loadJson(LS.teachers, []); roleKey = 'teacher'; }
+  else { list = loadJson(LS.admins, []); roleKey = 'admin'; }
+
+  const found = list.find(u => u.loginId === id && u.pw === pw);
+  if (!found) { errEl.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.'; return; }
+
+  if (document.getElementById('saveCred').checked) {
+    saveJson(LS.cred, { role: loginRole, id, pw });
+  } else {
+    localStorage.removeItem(LS.cred);
+  }
+
+  setSession({ role: roleKey, userId: found.id });
+  renderApp();
+}
+function logout() { setSession(null); renderApp(); }
+
+function applySavedCred() {
+  const saved = loadJson(LS.cred, null);
+  if (saved) {
+    switchRole(saved.role);
+    document.getElementById('loginId').value = saved.id;
+    document.getElementById('loginPw').value = saved.pw;
+    document.getElementById('saveCred').checked = true;
+  } else {
+    switchRole('student');
+  }
+}
+
+/* ===================== 학생 화면 ===================== */
+let pickedStatus = null;
+let studentViewDate = todayKey();
+const STUDENT_STATUS_IDS = ['귀교','지각','미귀교'];
+function pickStatus(status) {
+  pickedStatus = status;
+  STUDENT_STATUS_IDS.forEach(s => {
+    const el = document.getElementById('opt-' + s);
+    if (el) el.classList.toggle('picked', s === status);
+  });
+  document.getElementById('etaField').classList.toggle('hidden', status !== '지각');
+  document.getElementById('returnItemsField').classList.toggle('hidden', status !== '귀교');
+}
+function renderStudentScreen(userId) {
+  studentViewDate = todayKey();
+  const students = loadJson(LS.students, []);
+  const student = students.find(s => s.id === userId);
+  if (!student) { logout(); return; }
+  document.getElementById('studentGreeting').textContent = student.name;
+  document.getElementById('studentClassLabel').textContent = `${student.grade}학년 ${student.ban}반 ${student.number}번`;
+  document.getElementById('studentPhone').value = student.phone || '';
+  document.getElementById('phoneMsg').textContent = '';
+  document.getElementById('studentDateInput').value = studentViewDate;
+
+  const status = loadStatus(studentViewDate)[student.id];
+  const summaryEl = document.getElementById('submittedSummary');
+  pickStatus(null);
+  document.getElementById('studentReason').value = '';
+  document.getElementById('studentEta').value = '';
+  document.getElementById('studentReturnItems').value = '';
+  if (status && status.state) {
+    summaryEl.innerHTML = `현재 제출 상태: <span class="badge s-${status.state}">${status.state}</span>` +
+      (status.reason ? `<div class="muted" style="margin-top:6px;">사유: ${escapeHtml(status.reason)}</div>` : '') +
+      (status.eta ? `<div class="muted">예상 도착: ${status.eta}</div>` : '') +
+      (status.returnItems ? `<div class="muted">반납 물품: ${escapeHtml(status.returnItems)}</div>` : '') +
+      (status.reportedAt ? `<div class="muted">제출 시각: ${status.reportedAt}</div>` : '');
+    pickStatus(status.state);
+    document.getElementById('studentReason').value = status.reason || '';
+    document.getElementById('studentEta').value = status.eta || '';
+    document.getElementById('studentReturnItems').value = status.returnItems || '';
+  } else {
+    summaryEl.innerHTML = '<span class="muted">아직 제출 내역이 없습니다.</span>';
+  }
+}
+function submitStudentStatus() {
+  const session = getSession();
+  const errEl = document.getElementById('studentError');
+  errEl.textContent = '';
+  if (!pickedStatus) { errEl.textContent = '상태를 선택해주세요.'; return; }
+
+  const patch = {
+    state: pickedStatus,
+    reason: document.getElementById('studentReason').value.trim(),
+    eta: pickedStatus === '지각' ? document.getElementById('studentEta').value : '',
+    returnItems: pickedStatus === '귀교' ? document.getElementById('studentReturnItems').value.trim() : '',
+    reportedAt: nowTimeStr()
+  };
+  setStudentStatus(studentViewDate, session.userId, patch);
+  renderStudentScreen(session.userId);
+}
+
+function saveMyPhone() {
+  const session = getSession();
+  const msgEl = document.getElementById('phoneMsg');
+  const phone = document.getElementById('studentPhone').value.trim();
+  const students = loadJson(LS.students, []);
+  const student = students.find(s => s.id === session.userId);
+  if (!student) return;
+  student.phone = phone;
+  saveJson(LS.students, students);
+  msgEl.style.color = 'var(--green)';
+  msgEl.textContent = '연락처가 저장되었습니다.';
+}
+function togglePwForm() {
+  const form = document.getElementById('pwChangeForm');
+  form.classList.toggle('hidden');
+  document.getElementById('pwChangeMsg').textContent = '';
+  ['curPw','newPw1','newPw2'].forEach(id => document.getElementById(id).value = '');
+}
+function changeMyPassword() {
+  const session = getSession();
+  const msgEl = document.getElementById('pwChangeMsg');
+  const curPw = document.getElementById('curPw').value;
+  const newPw1 = document.getElementById('newPw1').value;
+  const newPw2 = document.getElementById('newPw2').value;
+  msgEl.style.color = 'var(--red)';
+
+  const students = loadJson(LS.students, []);
+  const student = students.find(s => s.id === session.userId);
+  if (!student) { msgEl.textContent = '계정 정보를 찾을 수 없습니다.'; return; }
+  if (curPw !== student.pw) { msgEl.textContent = '현재 비밀번호가 올바르지 않습니다.'; return; }
+  if (!newPw1) { msgEl.textContent = '새 비밀번호를 입력해주세요.'; return; }
+  if (newPw1 !== newPw2) { msgEl.textContent = '새 비밀번호가 서로 일치하지 않습니다.'; return; }
+  if (newPw1 === curPw) { msgEl.textContent = '현재 비밀번호와 다른 비밀번호를 입력해주세요.'; return; }
+
+  student.pw = newPw1;
+  saveJson(LS.students, students);
+
+  const saved = loadJson(LS.cred, null);
+  if (saved && saved.role === 'student' && saved.id === student.loginId) {
+    saveJson(LS.cred, { ...saved, pw: newPw1 });
+  }
+
+  msgEl.style.color = 'var(--green)';
+  msgEl.textContent = '비밀번호가 변경되었습니다.';
+  ['curPw','newPw1','newPw2'].forEach(id => document.getElementById(id).value = '');
+}
+
+/* ===================== 귀교 현황 대시보드 (교사/관리자 공용) ===================== */
+const ALL_STATUSES = ['미도착','귀교','지각','미귀교'];
+let dashGradeFilter = '전체';
+let dashStatusFilter = '전체';
+
+function dashboardHtml(idPrefix) {
+  return `
+    <div class="card">
+      <div class="row" style="justify-content: space-between; margin-bottom: 14px;">
+        <div class="row">
+          <label style="margin:0;">📅 날짜 선택</label>
+          <input type="date" id="${idPrefix}DateInput" value="${viewDateKey}" style="width:auto;">
+          <button class="secondary small" onclick="loadDashDate('${idPrefix}')">🔄 불러오기</button>
+        </div>
+        <button class="secondary small" onclick="exportCsv('${idPrefix}')">⬇ 엑셀(CSV) 내보내기</button>
+      </div>
+      <div class="stats" id="${idPrefix}Stats"></div>
+      <div class="search-box-wrap">
+        <label>🔍 학생 검색</label>
+        <input id="${idPrefix}Search" placeholder="이름·학번·아이디 검색..." oninput="renderDashTable('${idPrefix}')">
+      </div>
+      <div class="row" style="margin-bottom:10px;" id="${idPrefix}GradeChips"></div>
+      <div class="row" style="margin-bottom:14px;" id="${idPrefix}StatusChips"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>학년</th><th>반</th><th>번호</th><th>이름</th><th>연락처</th><th>상태</th><th>제출시각</th><th>사유/예정시각</th><th>특이사항</th><th>액션</th></tr>
+          </thead>
+          <tbody id="${idPrefix}TableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+function loadDashDate(idPrefix) {
+  viewDateKey = document.getElementById(idPrefix + 'DateInput').value || todayKey();
+  renderDashAll(idPrefix);
+}
+function renderDashAll(idPrefix) {
+  renderDashStats(idPrefix);
+  renderChips(idPrefix);
+  renderDashTable(idPrefix);
+}
+function renderDashStats(idPrefix) {
+  const students = loadJson(LS.students, []);
+  const status = loadStatus(viewDateKey);
+  const count = s => students.filter(st => (status[st.id]?.state || '미도착') === s).length;
+  document.getElementById(idPrefix + 'Stats').innerHTML = `
+    <div class="stat"><div class="num">${students.length}</div><div class="label">전체</div></div>
+    <div class="stat"><div class="num" style="color:var(--green)">${count('귀교')}</div><div class="label">귀교 완료</div></div>
+    <div class="stat"><div class="num" style="color:var(--orange)">${count('지각')}</div><div class="label">지각</div></div>
+    <div class="stat"><div class="num" style="color:var(--purple)">${count('미귀교')}</div><div class="label">미귀교</div></div>
+    <div class="stat"><div class="num" style="color:var(--red)">${count('미도착')}</div><div class="label">미도착</div></div>
+  `;
+}
+function renderChips(idPrefix) {
+  const students = loadJson(LS.students, []);
+  const grades = ['전체', ...new Set(students.map(s => s.grade))].sort((a,b) => a==='전체'?-1:b==='전체'?1:a-b);
+  document.getElementById(idPrefix + 'GradeChips').innerHTML = grades.map(g => `
+    <button class="chip ${dashGradeFilter == g ? 'active' : ''}" onclick="setGradeFilter('${idPrefix}','${g}')">${g === '전체' ? '전체' : g + '학년'}</button>
+  `).join('');
+  const statuses = ['전체', ...ALL_STATUSES];
+  document.getElementById(idPrefix + 'StatusChips').innerHTML = statuses.map(s => `
+    <button class="status-chip ${dashStatusFilter === s ? 'active' : ''}" onclick="setStatusFilter('${idPrefix}','${s}')">${s}</button>
+  `).join('');
+}
+function setGradeFilter(idPrefix, g) { dashGradeFilter = g; renderDashAll(idPrefix); }
+function setStatusFilter(idPrefix, s) { dashStatusFilter = s; renderDashAll(idPrefix); }
+
+function renderDashTable(idPrefix) {
+  const q = (document.getElementById(idPrefix + 'Search')?.value || '').trim();
+  const students = loadJson(LS.students, []);
+  const status = loadStatus(viewDateKey);
+
+  let list = students.slice();
+  if (dashGradeFilter !== '전체') list = list.filter(s => String(s.grade) === String(dashGradeFilter));
+  if (q) list = list.filter(s => s.name.includes(q) || s.loginId.includes(q) || String(s.number).includes(q));
+  if (dashStatusFilter !== '전체') list = list.filter(s => (status[s.id]?.state || '미도착') === dashStatusFilter);
+  list.sort((a,b) => a.grade - b.grade || a.ban - b.ban || a.number - b.number);
+
+  const body = document.getElementById(idPrefix + 'TableBody');
+  body.innerHTML = list.map(s => {
+    const st = status[s.id] || {};
+    const state = st.state || '미도착';
+    return `
+      <tr>
+        <td>${s.grade}</td>
+        <td>${s.ban}</td>
+        <td>${s.number}</td>
+        <td>${escapeHtml(s.name)}</td>
+        <td>${s.phone ? `<a href="tel:${escapeHtml(s.phone)}" style="color:var(--accent); font-weight:600; text-decoration:none;">📞 ${escapeHtml(s.phone)}</a>` : '<span class="muted">미등록</span>'}</td>
+        <td><span class="badge s-${state}">${state}</span></td>
+        <td>${st.reportedAt || '-'}</td>
+        <td>${escapeHtml(st.reason || '-')}</td>
+        <td><input value="${escapeHtml(st.note || '')}" placeholder="특이사항 입력" onchange="setNote('${s.id}', this.value, '${idPrefix}')" style="min-width:140px;"></td>
+        <td>
+          <select onchange="overrideStatus('${s.id}', this.value, '${idPrefix}')">
+            <option value="">상태 변경...</option>
+            ${ALL_STATUSES.map(x => `<option value="${x}">${x}</option>`).join('')}
+          </select>
+        </td>
+      </tr>
+    `;
+  }).join('') || `<tr><td colspan="10" class="muted">해당 조건의 학생이 없습니다.</td></tr>`;
+}
+function setNote(studentId, note, idPrefix) {
+  setStudentStatus(viewDateKey, studentId, { note });
+}
+function overrideStatus(studentId, value, idPrefix) {
+  if (!value) return;
+  setStudentStatus(viewDateKey, studentId, { state: value, reportedAt: nowTimeStr() });
+  renderDashAll(idPrefix);
+}
+function exportCsv(idPrefix) {
+  const students = loadJson(LS.students, []);
+  const status = loadStatus(viewDateKey);
+  const rows = [['학년','반','번호','이름','연락처','상태','제출시각','사유','특이사항']];
+  students.slice().sort((a,b) => a.grade - b.grade || a.ban - b.ban || a.number - b.number).forEach(s => {
+    const st = status[s.id] || {};
+    rows.push([s.grade, s.ban, s.number, s.name, s.phone || '', st.state || '미도착', st.reportedAt || '', st.reason || '', st.note || '']);
+  });
+  const csv = '﻿' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `귀교현황_${viewDateKey}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ===================== 관리자: 학생/교사 계정 관리 ===================== */
+function switchAdminTab(tab) {
+  ['dash','students','teachers'].forEach(t => {
+    document.getElementById('adminTab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('admin' + capitalize(t) + 'Wrap').classList.toggle('hidden', t !== tab);
+  });
+  if (tab === 'dash') renderDashAll('adminDash');
+  if (tab === 'students') renderAdminStudents();
+  if (tab === 'teachers') renderAdminTeachers();
+}
+function renderAdminStudents() {
+  const wrap = document.getElementById('adminStudentsWrap');
+  wrap.innerHTML = `
+    <div class="card">
+      <h2>학생 계정 추가</h2>
+      <div class="row">
+        <div class="field" style="flex:1; margin-bottom:0;"><label>학년</label><input id="newStGrade" type="number" min="1" max="3"></div>
+        <div class="field" style="flex:1; margin-bottom:0;"><label>반</label><input id="newStBan" type="number" min="1"></div>
+        <div class="field" style="flex:1; margin-bottom:0;"><label>번호</label><input id="newStNumber" type="number" min="1"></div>
+        <div class="field" style="flex:2; margin-bottom:0;"><label>이름</label><input id="newStName"></div>
+        <div class="field" style="flex:1.5; margin-bottom:0;"><label>아이디</label><input id="newStLoginId"></div>
+        <div class="field" style="flex:1.5; margin-bottom:0;"><label>비밀번호</label><input id="newStPw"></div>
+        <div><label>&nbsp;</label><button onclick="addStudentAccount()">추가</button></div>
+      </div>
+      <div class="error-msg" id="addStError"></div>
+      <p class="muted" style="margin-top:14px;">CSV 일괄 업로드 (형식: 학년,반,번호,이름,아이디,비밀번호 — 한 줄에 한 명)</p>
+      <div class="row">
+        <input type="file" id="csvFile" accept=".csv,text/csv" style="max-width:280px;">
+        <button class="secondary" onclick="uploadCsv()">업로드</button>
+      </div>
+      <div class="error-msg" id="csvError"></div>
+    </div>
+    <div class="card">
+      <h2>학생 계정 목록</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>학년</th><th>반</th><th>번호</th><th>이름</th><th>연락처</th><th>아이디</th><th>비밀번호</th><th>관리</th></tr></thead>
+          <tbody id="studentAccountBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  renderStudentAccountTable();
+}
+function renderStudentAccountTable() {
+  const students = loadJson(LS.students, []).slice().sort((a,b) => a.grade-b.grade || a.ban-b.ban || a.number-b.number);
+  document.getElementById('studentAccountBody').innerHTML = students.map(s => `
+    <tr>
+      <td><input type="number" value="${s.grade}" onchange="updateStudentField('${s.id}','grade',this.value)" style="width:60px;"></td>
+      <td><input type="number" value="${s.ban}" onchange="updateStudentField('${s.id}','ban',this.value)" style="width:60px;"></td>
+      <td><input type="number" value="${s.number}" onchange="updateStudentField('${s.id}','number',this.value)" style="width:60px;"></td>
+      <td><input value="${escapeHtml(s.name)}" onchange="updateStudentField('${s.id}','name',this.value)" style="width:100px;"></td>
+      <td><input value="${escapeHtml(s.phone || '')}" placeholder="010-0000-0000" onchange="updateStudentField('${s.id}','phone',this.value)" style="width:130px;"></td>
+      <td><input value="${escapeHtml(s.loginId)}" onchange="updateStudentField('${s.id}','loginId',this.value)" style="width:110px;"></td>
+      <td><input value="${escapeHtml(s.pw)}" onchange="updateStudentField('${s.id}','pw',this.value)" style="width:100px;"></td>
+      <td><button class="danger small" onclick="deleteStudentAccount('${s.id}')">삭제</button></td>
+    </tr>
+  `).join('') || `<tr><td colspan="8" class="muted">등록된 학생이 없습니다.</td></tr>`;
+}
+function addStudentAccount() {
+  const grade = parseInt(document.getElementById('newStGrade').value, 10);
+  const ban = parseInt(document.getElementById('newStBan').value, 10);
+  const number = parseInt(document.getElementById('newStNumber').value, 10);
+  const name = document.getElementById('newStName').value.trim();
+  const loginId = document.getElementById('newStLoginId').value.trim();
+  const pw = document.getElementById('newStPw').value.trim();
+  const errEl = document.getElementById('addStError');
+  if (!grade || !ban || !number || !name || !loginId || !pw) {
+    errEl.textContent = '모든 항목을 입력해주세요.'; return;
+  }
+  const students = loadJson(LS.students, []);
+  if (students.some(s => s.loginId === loginId)) { errEl.textContent = '이미 사용 중인 아이디입니다.'; return; }
+  errEl.textContent = '';
+  students.push({ id: 'st_' + Date.now(), grade, ban, number, name, loginId, pw });
+  saveJson(LS.students, students);
+  ['newStGrade','newStBan','newStNumber','newStName','newStLoginId','newStPw'].forEach(id => document.getElementById(id).value = '');
+  renderStudentAccountTable();
+}
+function updateStudentField(id, field, value) {
+  const students = loadJson(LS.students, []);
+  const s = students.find(x => x.id === id);
+  if (!s) return;
+  s[field] = ['grade','ban','number'].includes(field) ? (parseInt(value,10) || 1) : value.trim();
+  saveJson(LS.students, students);
+}
+function deleteStudentAccount(id) {
+  if (!confirm('이 학생 계정을 삭제하시겠습니까?')) return;
+  saveJson(LS.students, loadJson(LS.students, []).filter(s => s.id !== id));
+  renderStudentAccountTable();
+}
+function uploadCsv() {
+  const fileInput = document.getElementById('csvFile');
+  const errEl = document.getElementById('csvError');
+  errEl.textContent = '';
+  if (!fileInput.files.length) { errEl.textContent = '파일을 선택해주세요.'; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const students = loadJson(LS.students, []);
+    let added = 0, skipped = 0;
+    lines.forEach(line => {
+      const [grade, ban, number, name, loginId, pw] = line.split(',').map(v => v?.trim());
+      if (!grade || !ban || !number || !name || !loginId || !pw) { skipped++; return; }
+      if (students.some(s => s.loginId === loginId)) { skipped++; return; }
+      students.push({ id: 'st_' + Date.now() + '_' + added, grade: parseInt(grade,10), ban: parseInt(ban,10), number: parseInt(number,10), name, loginId, pw });
+      added++;
+    });
+    saveJson(LS.students, students);
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = `${added}명 추가됨 (${skipped}건 건너뜀 - 중복 아이디 또는 형식 오류)`;
+    renderStudentAccountTable();
+  };
+  reader.readAsText(fileInput.files[0], 'UTF-8');
+}
+
+function renderAdminTeachers() {
+  const wrap = document.getElementById('adminTeachersWrap');
+  wrap.innerHTML = `
+    <div class="card">
+      <h2>교사 계정 추가</h2>
+      <div class="row">
+        <div class="field" style="flex:2; margin-bottom:0;"><label>이름</label><input id="newTeName"></div>
+        <div class="field" style="flex:1.5; margin-bottom:0;"><label>아이디</label><input id="newTeLoginId"></div>
+        <div class="field" style="flex:1.5; margin-bottom:0;"><label>비밀번호</label><input id="newTePw"></div>
+        <div><label>&nbsp;</label><button onclick="addTeacherAccount()">추가</button></div>
+      </div>
+      <div class="error-msg" id="addTeError"></div>
+    </div>
+    <div class="card">
+      <h2>교사 계정 목록</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>이름</th><th>아이디</th><th>비밀번호</th><th>관리</th></tr></thead>
+          <tbody id="teacherAccountBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  renderTeacherAccountTable();
+}
+function renderTeacherAccountTable() {
+  const teachers = loadJson(LS.teachers, []);
+  document.getElementById('teacherAccountBody').innerHTML = teachers.map(t => `
+    <tr>
+      <td><input value="${escapeHtml(t.name)}" onchange="updateTeacherField('${t.id}','name',this.value)" style="width:100px;"></td>
+      <td><input value="${escapeHtml(t.loginId)}" onchange="updateTeacherField('${t.id}','loginId',this.value)" style="width:110px;"></td>
+      <td><input value="${escapeHtml(t.pw)}" onchange="updateTeacherField('${t.id}','pw',this.value)" style="width:100px;"></td>
+      <td><button class="danger small" onclick="deleteTeacherAccount('${t.id}')">삭제</button></td>
+    </tr>
+  `).join('') || `<tr><td colspan="4" class="muted">등록된 교사가 없습니다.</td></tr>`;
+}
+function addTeacherAccount() {
+  const name = document.getElementById('newTeName').value.trim();
+  const loginId = document.getElementById('newTeLoginId').value.trim();
+  const pw = document.getElementById('newTePw').value.trim();
+  const errEl = document.getElementById('addTeError');
+  if (!name || !loginId || !pw) { errEl.textContent = '모든 항목을 입력해주세요.'; return; }
+  const teachers = loadJson(LS.teachers, []);
+  if (teachers.some(t => t.loginId === loginId)) { errEl.textContent = '이미 사용 중인 아이디입니다.'; return; }
+  errEl.textContent = '';
+  teachers.push({ id: 'te_' + Date.now(), name, loginId, pw });
+  saveJson(LS.teachers, teachers);
+  ['newTeName','newTeLoginId','newTePw'].forEach(id => document.getElementById(id).value = '');
+  renderTeacherAccountTable();
+}
+function updateTeacherField(id, field, value) {
+  const teachers = loadJson(LS.teachers, []);
+  const t = teachers.find(x => x.id === id);
+  if (!t) return;
+  t[field] = value.trim();
+  saveJson(LS.teachers, teachers);
+}
+function deleteTeacherAccount(id) {
+  if (!confirm('이 교사 계정을 삭제하시겠습니까?')) return;
+  saveJson(LS.teachers, loadJson(LS.teachers, []).filter(t => t.id !== id));
+  renderTeacherAccountTable();
+}
+
+/* ===================== 공통 ===================== */
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function renderApp() {
+  const session = getSession();
+  const header = document.getElementById('appHeader');
+  const tabbar = document.getElementById('tabbar');
+  const loginScreen = document.getElementById('loginScreen');
+  const studentScreen = document.getElementById('studentScreen');
+  const teacherScreen = document.getElementById('teacherScreen');
+  const adminScreen = document.getElementById('adminScreen');
+
+  [loginScreen, studentScreen, teacherScreen, adminScreen].forEach(el => el.classList.add('hidden'));
+  header.classList.add('hidden');
+  tabbar.classList.add('hidden');
+  document.querySelector('.container.narrow')?.classList.remove('hidden');
+
+  if (!session) {
+    document.getElementById('loginId').value = '';
+    document.getElementById('loginPw').value = '';
+    loginScreen.classList.remove('hidden');
+    applySavedCred();
+    return;
+  }
+
+  loginScreen.classList.add('hidden');
+  document.querySelector('.container.narrow').classList.add('hidden');
+  header.classList.remove('hidden');
+
+  if (session.role === 'student') {
+    document.getElementById('headerTitle').textContent = '🏫 지평선고등학교 귀교 확인 — 학생';
+    studentScreen.classList.remove('hidden');
+    renderStudentScreen(session.userId);
+  } else if (session.role === 'teacher') {
+    document.getElementById('headerTitle').textContent = '🏫 지평선고등학교 귀교 확인 — 교사';
+    teacherScreen.classList.remove('hidden');
+    document.getElementById('teacherDashboard').innerHTML = dashboardHtml('teacher');
+    renderDashAll('teacher');
+  } else if (session.role === 'admin') {
+    document.getElementById('headerTitle').textContent = '⚙ 관리자 — 지평선고등학교';
+    adminScreen.classList.remove('hidden');
+    tabbar.classList.add('hidden');
+    document.getElementById('adminDashWrap').innerHTML = dashboardHtml('adminDash');
+    renderDashAll('adminDash');
+    switchAdminTab('dash');
+  }
+}
+
+renderApp();
+</script>
+</body>
+</html>
