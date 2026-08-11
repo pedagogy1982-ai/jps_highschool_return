@@ -467,17 +467,29 @@ async function fetchCsvRows(path) {
     return null;
   }
 }
+function parseStudentCsvLines(lines) {
+  const list = [];
+  lines.forEach((line, i) => {
+    const [grade, ban, number, name, loginId, pw] = line.split(',').map(v => v?.trim());
+    if (!grade || !ban || !number || !name || !loginId || !pw) return;
+    if (isNaN(parseInt(grade, 10)) || isNaN(parseInt(ban, 10)) || isNaN(parseInt(number, 10))) return; // 헤더 행
+    list.push({ id: 'st_' + i, grade: parseInt(grade, 10), ban: parseInt(ban, 10), number: parseInt(number, 10), name, loginId, pw });
+  });
+  return list;
+}
+function parseTeacherCsvLines(lines) {
+  const list = [];
+  lines.forEach((line, i) => {
+    const [name, loginId, pw] = line.split(',').map(v => v?.trim());
+    if (!name || !loginId || !pw) return;
+    if (name === '이름' && loginId === '아이디') return; // 헤더 행
+    list.push({ id: 'te_' + i, name, loginId, pw });
+  });
+  return list;
+}
 async function seedStudentsFromCsv() {
   const lines = await fetchCsvRows('./2026student.csv');
-  const list = [];
-  if (lines) {
-    lines.forEach((line, i) => {
-      const [grade, ban, number, name, loginId, pw] = line.split(',').map(v => v?.trim());
-      if (!grade || !ban || !number || !name || !loginId || !pw) return;
-      if (isNaN(parseInt(grade, 10)) || isNaN(parseInt(ban, 10)) || isNaN(parseInt(number, 10))) return; // 헤더 행
-      list.push({ id: 'st_' + i, grade: parseInt(grade, 10), ban: parseInt(ban, 10), number: parseInt(number, 10), name, loginId, pw });
-    });
-  }
+  const list = lines ? parseStudentCsvLines(lines) : [];
   if (!list.length) {
     list.push(
       { id: 'st1', loginId: '10101', pw: '0000', grade: 1, ban: 1, number: 1, name: '강민준' },
@@ -489,19 +501,35 @@ async function seedStudentsFromCsv() {
 }
 async function seedTeachersFromCsv() {
   const lines = await fetchCsvRows('./2026teacher.csv');
-  const list = [];
-  if (lines) {
-    lines.forEach((line, i) => {
-      const [name, loginId, pw] = line.split(',').map(v => v?.trim());
-      if (!name || !loginId || !pw) return;
-      if (name === '이름' && loginId === '아이디') return; // 헤더 행
-      list.push({ id: 'te_' + i, name, loginId, pw });
-    });
-  }
+  const list = lines ? parseTeacherCsvLines(lines) : [];
   if (!list.length) {
     list.push({ id: 't1', loginId: 'teacher', pw: '0000', name: '김교사' });
   }
   return list;
+}
+// 관리자가 버튼으로 직접 눌러 강제로 다시 불러오는 경우: CSV를 못 읽으면
+// (예: file://로 직접 연 경우) 조용히 예시 데이터로 대체하지 않고 명확히 알려줍니다.
+async function forceReseedStudents() {
+  if (!confirm('현재 학생 목록을 지우고 2026student.csv 파일 내용으로 완전히 다시 불러옵니다. 계속할까요?')) return;
+  const lines = await fetchCsvRows('./2026student.csv');
+  if (!lines) { alert('2026student.csv 파일을 불러오지 못했습니다. file://로 직접 연 경우, 로컬 웹서버(http://)나 실제 배포 주소에서 다시 시도해주세요.'); return; }
+  const list = parseStudentCsvLines(lines);
+  if (!list.length) { alert('CSV에서 유효한 학생 데이터를 찾지 못했습니다.'); return; }
+  saveJson(LS.students, list);
+  backupAccounts();
+  renderStudentAccountTable();
+  alert(`${list.length}명의 학생 명단을 CSV에서 다시 불러왔습니다.`);
+}
+async function forceReseedTeachers() {
+  if (!confirm('현재 교사 목록을 지우고 2026teacher.csv 파일 내용으로 완전히 다시 불러옵니다. 계속할까요?')) return;
+  const lines = await fetchCsvRows('./2026teacher.csv');
+  if (!lines) { alert('2026teacher.csv 파일을 불러오지 못했습니다. file://로 직접 연 경우, 로컬 웹서버(http://)나 실제 배포 주소에서 다시 시도해주세요.'); return; }
+  const list = parseTeacherCsvLines(lines);
+  if (!list.length) { alert('CSV에서 유효한 교사 데이터를 찾지 못했습니다.'); return; }
+  saveJson(LS.teachers, list);
+  backupAccounts();
+  renderTeacherAccountTable();
+  alert(`${list.length}명의 교사 명단을 CSV에서 다시 불러왔습니다.`);
 }
 
 function backupAccounts() {
@@ -974,6 +1002,7 @@ function renderAdminStudents() {
       <div class="row" style="align-items:center; gap:8px; margin-bottom:12px;">
         <button class="secondary small" onclick="backupAccounts()">💾 계정 백업 저장</button>
         <button class="secondary small" onclick="restoreStudentBackup()">🔄 학생 계정 복원</button>
+        <button class="secondary small" onclick="forceReseedStudents()">📄 2026student.csv로 강제 초기화</button>
       </div>
       <div class="row">
         <div class="field" style="flex:1; margin-bottom:0;"><label>학년</label><input id="newStGrade" type="number" min="1" max="3"></div>
@@ -1116,6 +1145,7 @@ function renderAdminTeachers() {
       <div class="row" style="align-items:center; gap:8px; margin-bottom:12px;">
         <button class="secondary small" onclick="backupAccounts()">💾 계정 백업 저장</button>
         <button class="secondary small" onclick="restoreTeacherBackup()">🔄 교사 계정 복원</button>
+        <button class="secondary small" onclick="forceReseedTeachers()">📄 2026teacher.csv로 강제 초기화</button>
       </div>
       <div class="row">
         <div class="field" style="flex:2; margin-bottom:0;"><label>이름</label><input id="newTeName"></div>
