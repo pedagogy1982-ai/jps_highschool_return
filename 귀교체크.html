@@ -272,7 +272,11 @@
     </div>
     <div class="field hidden" id="etaField" style="margin-top:16px;">
       <label>예상 도착 시각</label>
-      <input type="time" id="studentEta" step="300">
+      <div class="row" style="gap:8px; align-items:center;">
+        <input type="tel" id="studentEtaHour" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="시" style="width:80px;">
+        <span style="font-size:16px;">:</span>
+        <input type="tel" id="studentEtaMinute" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="분" style="width:80px;">
+      </div>
     </div>
     <div class="field hidden" id="reasonField" style="margin-top:16px;">
       <textarea id="studentReason" rows="2" placeholder="사유 (선택)"></textarea>
@@ -290,6 +294,26 @@
 </div>
 
 <div class="container hidden" id="teacherScreen">
+  <div class="card" style="margin-bottom:12px;">
+    <h2>교사 비밀번호 변경</h2>
+    <button class="secondary small" style="margin-top:6px;" onclick="toggleTeacherPwForm()">🔑 비밀번호 변경</button>
+    <div class="hidden" id="teacherPwChangeForm" style="text-align:left; margin-top:14px;">
+      <div class="field">
+        <label>현재 비밀번호</label>
+        <input type="password" id="teacherCurPw">
+      </div>
+      <div class="field">
+        <label>새 비밀번호</label>
+        <input type="password" id="teacherNewPw1">
+      </div>
+      <div class="field">
+        <label>새 비밀번호 확인</label>
+        <input type="password" id="teacherNewPw2">
+      </div>
+      <button style="width:100%;" onclick="changeMyPassword()">변경하기</button>
+      <div class="error-msg" id="teacherPwChangeMsg"></div>
+    </div>
+  </div>
   <div id="teacherDashboard"></div>
 </div>
 
@@ -472,17 +496,20 @@ function renderStudentScreen(userId) {
   const summaryEl = document.getElementById('submittedSummary');
   pickStatus(null);
   document.getElementById('studentReason').value = '';
-  document.getElementById('studentEta').value = '';
+  document.getElementById('studentEtaHour').value = '';
+  document.getElementById('studentEtaMinute').value = '';
   document.getElementById('studentReturnItems').value = '';
   if (status && status.state) {
     summaryEl.innerHTML = `현재 제출 상태: <span class="badge s-${status.state}">${status.state}</span>` +
-      (status.reason ? `<div class="muted" style="margin-top:6px;">사유: ${escapeHtml(status.reason)}</div>` : '') +
+      ((status.reason && status.state !== '귀교') ? `<div class="muted" style="margin-top:6px;">사유: ${escapeHtml(status.reason)}</div>` : '') +
       (status.eta ? `<div class="muted">예상 도착: ${status.eta}</div>` : '') +
       (status.returnItems ? `<div class="muted">반납 물품: ${escapeHtml(status.returnItems)}</div>` : '') +
       (status.reportedAt ? `<div class="muted">제출 시각: ${status.reportedAt}</div>` : '');
     pickStatus(status.state);
     document.getElementById('studentReason').value = status.reason || '';
-    document.getElementById('studentEta').value = status.eta || '';
+    const [etaHour='', etaMinute=''] = (status.eta || '').split(':');
+    document.getElementById('studentEtaHour').value = etaHour;
+    document.getElementById('studentEtaMinute').value = etaMinute;
     document.getElementById('studentReturnItems').value = status.returnItems || '';
   } else {
     summaryEl.innerHTML = '<span class="muted">아직 제출 내역이 없습니다.</span>';
@@ -494,15 +521,25 @@ function submitStudentStatus() {
   errEl.textContent = '';
   if (!pickedStatus) { errEl.textContent = '상태를 선택해주세요.'; return; }
 
+  const etaHour = document.getElementById('studentEtaHour').value.trim();
+  const etaMinute = document.getElementById('studentEtaMinute').value.trim();
   const patch = {
     state: pickedStatus,
-    reason: document.getElementById('studentReason').value.trim(),
-    eta: pickedStatus === '지각' ? document.getElementById('studentEta').value : '',
+    reason: (pickedStatus === '지각' || pickedStatus === '미귀교') ? document.getElementById('studentReason').value.trim() : '',
+    eta: pickedStatus === '지각' ? formatEta(etaHour, etaMinute) : '',
     returnItems: pickedStatus === '귀교' ? document.getElementById('studentReturnItems').value.trim() : '',
     reportedAt: nowTimeStr()
   };
   setStudentStatus(studentViewDate, session.userId, patch);
   renderStudentScreen(session.userId);
+}
+function formatEta(hour, minute) {
+  const h = hour.replace(/[^0-9]/g, '');
+  const m = minute.replace(/[^0-9]/g, '');
+  if (!h && !m) return '';
+  const hh = Math.min(23, parseInt(h || '0', 10));
+  const mm = Math.min(59, parseInt(m || '0', 10));
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
 function saveMyPhone() {
@@ -523,33 +560,46 @@ function togglePwForm() {
   document.getElementById('pwChangeMsg').textContent = '';
   ['curPw','newPw1','newPw2'].forEach(id => document.getElementById(id).value = '');
 }
+function toggleTeacherPwForm() {
+  const form = document.getElementById('teacherPwChangeForm');
+  form.classList.toggle('hidden');
+  document.getElementById('teacherPwChangeMsg').textContent = '';
+  ['teacherCurPw','teacherNewPw1','teacherNewPw2'].forEach(id => document.getElementById(id).value = '');
+}
 function changeMyPassword() {
   const session = getSession();
-  const msgEl = document.getElementById('pwChangeMsg');
-  const curPw = document.getElementById('curPw').value;
-  const newPw1 = document.getElementById('newPw1').value;
-  const newPw2 = document.getElementById('newPw2').value;
+  const msgEl = session.role === 'teacher' ? document.getElementById('teacherPwChangeMsg') : document.getElementById('pwChangeMsg');
+  const curPw = document.getElementById(session.role === 'teacher' ? 'teacherCurPw' : 'curPw').value;
+  const newPw1 = document.getElementById(session.role === 'teacher' ? 'teacherNewPw1' : 'newPw1').value;
+  const newPw2 = document.getElementById(session.role === 'teacher' ? 'teacherNewPw2' : 'newPw2').value;
   msgEl.style.color = 'var(--red)';
+  if (!session) { msgEl.textContent = '로그인이 필요합니다.'; return; }
 
-  const students = loadJson(LS.students, []);
-  const student = students.find(s => s.id === session.userId);
-  if (!student) { msgEl.textContent = '계정 정보를 찾을 수 없습니다.'; return; }
-  if (curPw !== student.pw) { msgEl.textContent = '현재 비밀번호가 올바르지 않습니다.'; return; }
+  let list, roleKey;
+  if (session.role === 'student') { list = loadJson(LS.students, []); roleKey = 'student'; }
+  else if (session.role === 'teacher') { list = loadJson(LS.teachers, []); roleKey = 'teacher'; }
+  else { msgEl.textContent = '이 기능은 학생 또는 교사 계정에서만 사용할 수 있습니다.'; return; }
+
+  const user = list.find(u => u.id === session.userId);
+  if (!user) { msgEl.textContent = '계정 정보를 찾을 수 없습니다.'; return; }
+  if (curPw !== user.pw) { msgEl.textContent = '현재 비밀번호가 올바르지 않습니다.'; return; }
   if (!newPw1) { msgEl.textContent = '새 비밀번호를 입력해주세요.'; return; }
   if (newPw1 !== newPw2) { msgEl.textContent = '새 비밀번호가 서로 일치하지 않습니다.'; return; }
   if (newPw1 === curPw) { msgEl.textContent = '현재 비밀번호와 다른 비밀번호를 입력해주세요.'; return; }
 
-  student.pw = newPw1;
-  saveJson(LS.students, students);
+  user.pw = newPw1;
+  if (session.role === 'student') saveJson(LS.students, list);
+  else saveJson(LS.teachers, list);
 
   const saved = loadJson(LS.cred, null);
-  if (saved && saved.role === 'student' && saved.id === student.loginId) {
+  if (saved && saved.role === roleKey && saved.id === user.loginId) {
     saveJson(LS.cred, { ...saved, pw: newPw1 });
   }
 
   msgEl.style.color = 'var(--green)';
   msgEl.textContent = '비밀번호가 변경되었습니다.';
-  ['curPw','newPw1','newPw2'].forEach(id => document.getElementById(id).value = '');
+  const ids = session.role === 'teacher' ? ['teacherCurPw','teacherNewPw1','teacherNewPw2'] : ['curPw','newPw1','newPw2'];
+  ids.forEach(id => document.getElementById(id).value = '');
 }
 
 /* ===================== 귀교 현황 대시보드 (교사/관리자 공용) ===================== */
