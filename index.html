@@ -274,7 +274,7 @@
       <label>예상 도착 시각</label>
       <input type="time" id="studentEta" step="300">
     </div>
-    <div class="field" style="margin-top:16px;">
+    <div class="field hidden" id="reasonField" style="margin-top:16px;">
       <textarea id="studentReason" rows="2" placeholder="사유 (선택)"></textarea>
     </div>
     <div class="field hidden" id="returnItemsField">
@@ -298,6 +298,26 @@
     <button class="chip active" id="adminTab-dash" onclick="switchAdminTab('dash')" style="margin-right:8px;">📊 귀교 현황</button>
     <button class="chip" id="adminTab-students" onclick="switchAdminTab('students')" style="margin-right:8px;">👥 학생 계정</button>
     <button class="chip" id="adminTab-teachers" onclick="switchAdminTab('teachers')">🏫 교사 계정</button>
+  </div>
+  <div class="card" style="margin-bottom:12px;">
+    <h2>관리자 비밀번호 변경</h2>
+    <button class="secondary small" style="margin-top:6px;" onclick="toggleAdminPwForm()">🔑 비밀번호 변경</button>
+    <div class="hidden" id="adminPwChangeForm" style="text-align:left; margin-top:14px;">
+      <div class="field">
+        <label>현재 비밀번호</label>
+        <input type="password" id="adminCurPw">
+      </div>
+      <div class="field">
+        <label>새 비밀번호</label>
+        <input type="password" id="adminNewPw1">
+      </div>
+      <div class="field">
+        <label>새 비밀번호 확인</label>
+        <input type="password" id="adminNewPw2">
+      </div>
+      <button style="width:100%;" onclick="changeAdminPassword()">변경하기</button>
+      <div class="error-msg" id="adminPwChangeMsg"></div>
+    </div>
   </div>
   <div id="adminDashWrap"></div>
   <div id="adminStudentsWrap" class="hidden"></div>
@@ -431,6 +451,11 @@ function pickStatus(status) {
   });
   document.getElementById('etaField').classList.toggle('hidden', status !== '지각');
   document.getElementById('returnItemsField').classList.toggle('hidden', status !== '귀교');
+  const showReason = status === '지각' || status === '미귀교';
+  document.getElementById('reasonField').classList.toggle('hidden', !showReason);
+  if (!showReason) {
+    document.getElementById('studentReason').value = '';
+  }
 }
 function renderStudentScreen(userId) {
   studentViewDate = todayKey();
@@ -525,6 +550,42 @@ function changeMyPassword() {
   msgEl.style.color = 'var(--green)';
   msgEl.textContent = '비밀번호가 변경되었습니다.';
   ['curPw','newPw1','newPw2'].forEach(id => document.getElementById(id).value = '');
+}
+function toggleAdminPwForm() {
+  const form = document.getElementById('adminPwChangeForm');
+  form.classList.toggle('hidden');
+  document.getElementById('adminPwChangeMsg').textContent = '';
+  ['adminCurPw','adminNewPw1','adminNewPw2'].forEach(id => document.getElementById(id).value = '');
+}
+function changeAdminPassword() {
+  const session = getSession();
+  const msgEl = document.getElementById('adminPwChangeMsg');
+  const curPw = document.getElementById('adminCurPw').value;
+  const newPw1 = document.getElementById('adminNewPw1').value;
+  const newPw2 = document.getElementById('adminNewPw2').value;
+  msgEl.style.color = 'var(--red)';
+
+  if (!session || session.role !== 'admin') { msgEl.textContent = '관리자 계정으로 로그인해야 합니다.'; return; }
+
+  const admins = loadJson(LS.admins, []);
+  const admin = admins.find(a => a.id === session.userId);
+  if (!admin) { msgEl.textContent = '관리자 계정을 찾을 수 없습니다.'; return; }
+  if (curPw !== admin.pw) { msgEl.textContent = '현재 비밀번호가 올바르지 않습니다.'; return; }
+  if (!newPw1) { msgEl.textContent = '새 비밀번호를 입력해주세요.'; return; }
+  if (newPw1 !== newPw2) { msgEl.textContent = '새 비밀번호가 서로 일치하지 않습니다.'; return; }
+  if (newPw1 === curPw) { msgEl.textContent = '현재 비밀번호와 다른 비밀번호를 입력해주세요.'; return; }
+
+  admin.pw = newPw1;
+  saveJson(LS.admins, admins);
+
+  const saved = loadJson(LS.cred, null);
+  if (saved && saved.role === 'admin' && saved.id === admin.loginId) {
+    saveJson(LS.cred, { ...saved, pw: newPw1 });
+  }
+
+  msgEl.style.color = 'var(--green)';
+  msgEl.textContent = '비밀번호가 변경되었습니다.';
+  ['adminCurPw','adminNewPw1','adminNewPw2'].forEach(id => document.getElementById(id).value = '');
 }
 
 /* ===================== 귀교 현황 대시보드 (교사/관리자 공용) ===================== */
