@@ -226,6 +226,7 @@
     <button style="width:100%;" onclick="doLogin()">로그인</button>
     <div class="error-msg" id="loginError"></div>
     <p class="muted" id="loginHint" style="margin-top:14px;"></p>
+    <p class="muted" id="appVersionTag" style="margin-top:4px; text-align:center; font-size:11px;"></p>
   </div>
 </div>
 
@@ -363,6 +364,9 @@
    (계정/현황 데이터만 Firestore 사용, 로그인 세션·저장된 로그인정보·백업은
    기기별 localStorage에 그대로 둡니다.)
    ===================================================================== */
+// 앱 버전: 선생님 요청사항 반영 시마다 CHANGELOG.md와 함께 올려주세요.
+const APP_VERSION = 'v1.0.0';
+
 const firebaseConfig = {
   apiKey: "AIzaSyCuM7R7IkP-IE7y9t4Nl436rtDsHC9CymE",
   authDomain: "jps-return.firebaseapp.com",
@@ -1262,6 +1266,7 @@ function renderApp() {
   }
 }
 
+document.getElementById('appVersionTag').textContent = APP_VERSION;
 initAppData();
 </script>
 </body>
