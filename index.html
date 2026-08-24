@@ -117,6 +117,7 @@
   .badge.s-귀교 { background: #dcfce7; color: var(--green); }
   .badge.s-지각 { background: #ffedd5; color: var(--orange); }
   .badge.s-미귀교 { background: #f3e8ff; color: var(--purple); }
+  .badge.s-제외 { background: #e2e8f0; color: var(--muted); }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 12px; margin-bottom: 18px; }
   .stat { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
   .stat .num { font-size: 24px; font-weight: 700; }
@@ -271,6 +272,8 @@
   </div>
 
   <div class="card">
+    <div class="hidden" id="statusExemptNotice" style="background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:16px; text-align:center;"></div>
+    <div id="statusCardBody">
     <label>📋 오늘 상태를 선택해주세요</label>
     <div class="status-grid">
       <div class="status-option" id="opt-귀교" onclick="pickStatus('귀교')"><div class="icon">🏫</div><div class="label">귀교</div><div class="sub">학교에 있음</div></div>
@@ -297,6 +300,30 @@
     </div>
     <div class="error-msg" id="studentError"></div>
     <div class="card" id="submittedSummary" style="margin-top:16px; background:#f8fafc;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="hidden" id="planExemptNotice" style="background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:16px; text-align:center;"></div>
+    <div id="planCardBody">
+    <label>🎒 이번 주 귀가 계획 (<span id="planFridayLabel"></span>)</label>
+    <p class="muted" style="margin-top:4px; margin-bottom:0;">월요일에 조사하며, 귀가일 전까지 언제든 다시 바꿀 수 있습니다.</p>
+    <div class="field" style="margin-top:16px;">
+      <label>귀가일 점심 식사</label>
+      <div class="status-grid" style="grid-template-columns: repeat(2, 1fr);">
+        <div class="status-option" id="opt-lunch-Y" onclick="pickPlanLunch('Y')"><div class="icon">🍚</div><div class="label">먹음</div></div>
+        <div class="status-option" id="opt-lunch-N" onclick="pickPlanLunch('N')"><div class="icon">🚫</div><div class="label">안 먹음</div></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>귀교 예정</label>
+      <div class="status-grid" style="grid-template-columns: repeat(2, 1fr);">
+        <div class="status-option" id="opt-return-Y" onclick="pickPlanReturn('Y')"><div class="icon">🏫</div><div class="label">귀교함</div></div>
+        <div class="status-option" id="opt-return-N" onclick="pickPlanReturn('N')"><div class="icon">🏠</div><div class="label">귀교 안 함</div></div>
+      </div>
+    </div>
+    <p class="muted" id="planSavedMsg" style="margin-top:4px;"></p>
+    </div>
   </div>
 </div>
 
@@ -321,12 +348,18 @@
       <div class="error-msg" id="teacherPwChangeMsg"></div>
     </div>
   </div>
+  <div class="tabbar" style="background:transparent; border:none; padding:0; margin-bottom:12px;">
+    <button class="chip active" id="teacherTab-dash" onclick="switchTeacherTab('dash')" style="margin-right:8px;">📊 귀교 현황</button>
+    <button class="chip" id="teacherTab-plan" onclick="switchTeacherTab('plan')">📝 귀가 계획</button>
+  </div>
   <div id="teacherDashboard"></div>
+  <div id="teacherPlanWrap" class="hidden"></div>
 </div>
 
 <div class="container hidden" id="adminScreen">
   <div class="tabbar" style="background:transparent; border:none; padding:0; margin-bottom:12px;">
     <button class="chip active" id="adminTab-dash" onclick="switchAdminTab('dash')" style="margin-right:8px;">📊 귀교 현황</button>
+    <button class="chip" id="adminTab-plan" onclick="switchAdminTab('plan')" style="margin-right:8px;">📝 귀가 계획</button>
     <button class="chip" id="adminTab-students" onclick="switchAdminTab('students')" style="margin-right:8px;">👥 학생 계정</button>
     <button class="chip" id="adminTab-teachers" onclick="switchAdminTab('teachers')">🏫 교사 계정</button>
   </div>
@@ -351,8 +384,29 @@
     </div>
   </div>
   <div id="adminDashWrap"></div>
+  <div id="adminPlanWrap" class="hidden"></div>
   <div id="adminStudentsWrap" class="hidden"></div>
   <div id="adminTeachersWrap" class="hidden"></div>
+</div>
+
+<div class="hidden" id="exemptModal" style="position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px;">
+  <div class="card" style="max-width:380px; width:100%; max-height:85vh; overflow-y:auto;">
+    <h2 id="exemptModalTitle">귀교현황 작성 제외 기간</h2>
+    <p class="muted" style="margin-top:-10px; margin-bottom:14px;">위탁·질병·기타 사유로 기숙사에 살지 않는 기간 동안, 이 학생은 귀교현황(및 귀가 계획)을 작성하지 않아도 됩니다.</p>
+    <div id="exemptModalList" style="margin-bottom:14px;"></div>
+    <div class="field"><label>사유</label>
+      <select id="exemptReason"><option value="위탁">위탁</option><option value="질병">질병</option><option value="기타">기타</option></select>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;"><label>시작일</label><input type="date" id="exemptFrom"></div>
+      <div class="field" style="flex:1;"><label>종료일</label><input type="date" id="exemptTo"></div>
+    </div>
+    <div class="error-msg" id="exemptError"></div>
+    <div class="row" style="margin-top:6px;">
+      <button style="flex:1;" onclick="addExemption()">추가</button>
+      <button class="secondary" style="flex:1;" onclick="closeExemptModal()">닫기</button>
+    </div>
+  </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -365,7 +419,7 @@
    기기별 localStorage에 그대로 둡니다.)
    ===================================================================== */
 // 앱 버전: 선생님 요청사항 반영 시마다 CHANGELOG.md와 함께 올려주세요.
-const APP_VERSION = 'v1.0.0';
+const APP_VERSION = 'v1.1.0';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCuM7R7IkP-IE7y9t4Nl436rtDsHC9CymE",
@@ -383,6 +437,7 @@ const LS = {
   teachers: 'jps_teachers',
   admins: 'jps_admins',
   statusPrefix: 'jps_status_', // + dateKey
+  planPrefix: 'jps_plan_', // + 귀가일(금요일) dateKey
   session: 'jps_session',
   cred: 'jps_saved_cred',
   backupStudents: 'jps_students_backup',
@@ -390,9 +445,10 @@ const LS = {
   backupTimestamp: 'jps_accounts_backup_ts'
 };
 
-// students/teachers/admins/status는 메모리 캐시 + Firestore 실시간 리스너로 관리됩니다.
-const cache = { students: null, teachers: null, admins: null, status: {} };
+// students/teachers/admins/status/plan은 메모리 캐시 + Firestore 실시간 리스너로 관리됩니다.
+const cache = { students: null, teachers: null, admins: null, status: {}, plan: {} };
 const statusListeners = {};
+const planListeners = {};
 
 function loadJson(key, fallback) {
   if (key === LS.students) return cache.students !== null ? cache.students : fallback;
@@ -402,6 +458,11 @@ function loadJson(key, fallback) {
     const dateKey = key.slice(LS.statusPrefix.length);
     ensureStatusListener(dateKey);
     return cache.status[dateKey] || fallback;
+  }
+  if (key.startsWith(LS.planPrefix)) {
+    const fridayKey = key.slice(LS.planPrefix.length);
+    ensurePlanListener(fridayKey);
+    return cache.plan[fridayKey] || fallback;
   }
   const raw = localStorage.getItem(key);
   return raw ? JSON.parse(raw) : fallback;
@@ -414,6 +475,12 @@ function saveJson(key, val) {
     const dateKey = key.slice(LS.statusPrefix.length);
     cache.status[dateKey] = val;
     db.collection('status').doc(dateKey).set(val);
+    return;
+  }
+  if (key.startsWith(LS.planPrefix)) {
+    const fridayKey = key.slice(LS.planPrefix.length);
+    cache.plan[fridayKey] = val;
+    db.collection('plan').doc(fridayKey).set(val);
     return;
   }
   localStorage.setItem(key, JSON.stringify(val));
@@ -434,6 +501,21 @@ function onStatusUpdate(dateKey) {
   else if (session.role === 'teacher' && dateKey === viewDateKey) renderDashAll('teacher');
   else if (session.role === 'admin' && dateKey === viewDateKey && document.getElementById('adminTab-dash')?.classList.contains('active')) renderDashAll('adminDash');
 }
+// 특정 귀가일(금요일)의 귀가 계획 문서를 실시간 구독합니다.
+function ensurePlanListener(fridayKey) {
+  if (planListeners[fridayKey]) return;
+  planListeners[fridayKey] = db.collection('plan').doc(fridayKey).onSnapshot(snap => {
+    cache.plan[fridayKey] = snap.exists ? snap.data() : {};
+    onPlanUpdate(fridayKey);
+  });
+}
+function onPlanUpdate(fridayKey) {
+  const session = getSession();
+  if (!session) return;
+  if (session.role === 'student' && fridayKey === currentFridayKey()) renderPlanCard(session.userId);
+  else if (session.role === 'teacher' && fridayKey === planFridayKey && document.getElementById('teacherTab-plan')?.classList.contains('active')) renderPlanDashAll('teacherPlan');
+  else if (session.role === 'admin' && fridayKey === planFridayKey && document.getElementById('adminTab-plan')?.classList.contains('active')) renderPlanDashAll('adminPlan');
+}
 // 계정 목록(학생/교사) 변경이 실시간으로 들어왔을 때, 현재 보고 있는 화면만 갱신합니다.
 // (renderApp() 전체를 다시 부르면 관리자가 다른 탭을 보던 중 대시보드 탭으로 튕기므로 지양)
 function onAccountsUpdate(key) {
@@ -441,10 +523,14 @@ function onAccountsUpdate(key) {
   if (!session) return;
   if (key === 'students') {
     if (session.role === 'student') renderStudentScreen(session.userId);
-    else if (session.role === 'teacher') renderDashAll('teacher');
+    else if (session.role === 'teacher') {
+      if (document.getElementById('teacherTab-plan')?.classList.contains('active')) renderPlanDashAll('teacherPlan');
+      else renderDashAll('teacher');
+    }
     else if (session.role === 'admin') {
       const activeTab = document.querySelector('#adminScreen .tabbar .chip.active')?.id?.replace('adminTab-', '');
       if (activeTab === 'dash') renderDashAll('adminDash');
+      else if (activeTab === 'plan') renderPlanDashAll('adminPlan');
       else if (activeTab === 'students') renderStudentAccountTable();
     }
   } else if (key === 'teachers') {
@@ -604,15 +690,35 @@ async function initAppData() {
 }
 
 /* ===================== 날짜 유틸 ===================== */
+function dateKeyFromDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 function todayKey() {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+  return dateKeyFromDate(new Date());
 }
 function nowTimeStr() {
   const n = new Date();
   return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
 }
+function addDaysToKey(dateKey, days) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  return dateKeyFromDate(dt);
+}
+// 오늘 기준 가장 가까운(지나지 않은) 귀가일(금요일)을 계산합니다. 오늘이 금요일이면 오늘, 주말이면 다음 주 금요일.
+function currentFridayKey() {
+  const n = new Date();
+  const day = n.getDay(); // 0=일 ... 5=금 6=토
+  let diff = 5 - day;
+  if (diff < 0) diff += 7;
+  n.setDate(n.getDate() + diff);
+  return dateKeyFromDate(n);
+}
+// 귀가일(금요일) 기준 귀교를 확인하는 다음 등교일(월요일).
+function mondayAfterFriday(fridayKey) { return addDaysToKey(fridayKey, 3); }
 let viewDateKey = todayKey();
+let planFridayKey = currentFridayKey();
 
 function loadStatus(dateKey) { return loadJson(LS.statusPrefix + dateKey, {}); }
 function saveStatus(dateKey, obj) { saveJson(LS.statusPrefix + dateKey, obj); }
@@ -624,6 +730,21 @@ function setStudentStatus(dateKey, studentId, patch) {
   cache.status[dateKey] = { ...obj, [studentId]: merged };
   db.collection('status').doc(dateKey).set({ [studentId]: merged }, { merge: true });
 }
+
+function loadPlan(fridayKey) { return loadJson(LS.planPrefix + fridayKey, {}); }
+function setStudentPlan(fridayKey, studentId, patch) {
+  const obj = loadPlan(fridayKey);
+  const merged = { ...(obj[studentId] || {}), ...patch, updatedAt: nowTimeStr() };
+  cache.plan[fridayKey] = { ...obj, [studentId]: merged };
+  db.collection('plan').doc(fridayKey).set({ [studentId]: merged }, { merge: true });
+}
+
+/* ===================== 제외 기간(위탁/질병/기타) ===================== */
+// dateKey가 학생의 제외 기간(from~to) 중 하나에 포함되면 그 기간 객체를 반환합니다.
+function activeExemption(student, dateKey) {
+  return (student.exemptions || []).find(e => e.from <= dateKey && dateKey <= e.to) || null;
+}
+function isExempt(student, dateKey) { return !!activeExemption(student, dateKey); }
 
 /* ===================== 세션 ===================== */
 function getSession() { return loadJson(LS.session, null); }
@@ -712,6 +833,15 @@ function renderStudentScreen(userId) {
   document.getElementById('phoneMsg').textContent = '';
   document.getElementById('studentDateInput').value = studentViewDate;
 
+  const statusExemption = activeExemption(student, studentViewDate);
+  document.getElementById('statusExemptNotice').classList.toggle('hidden', !statusExemption);
+  document.getElementById('statusCardBody').classList.toggle('hidden', !!statusExemption);
+  if (statusExemption) {
+    document.getElementById('statusExemptNotice').innerHTML =
+      `<span class="badge" style="background:#e2e8f0; color:var(--muted);">작성 제외</span>` +
+      `<div class="muted" style="margin-top:8px;">현재 귀교현황 작성 제외 대상입니다.<br>사유: ${escapeHtml(statusExemption.reason)} (${statusExemption.from} ~ ${statusExemption.to})</div>`;
+  }
+
   const status = loadStatus(studentViewDate)[student.id];
   const summaryEl = document.getElementById('submittedSummary');
   pickStatus(null);
@@ -734,6 +864,46 @@ function renderStudentScreen(userId) {
   } else {
     summaryEl.innerHTML = '<span class="muted">아직 제출 내역이 없습니다.</span>';
   }
+
+  renderPlanCard(userId);
+}
+
+/* ===================== 학생 화면: 귀가 계획 ===================== */
+function renderPlanCard(userId) {
+  const students = loadJson(LS.students, []);
+  const student = students.find(s => s.id === userId);
+  if (!student) return;
+  const fridayKey = currentFridayKey();
+  document.getElementById('planFridayLabel').textContent = `${fridayKey} 금`;
+
+  const planExemption = activeExemption(student, fridayKey);
+  document.getElementById('planExemptNotice').classList.toggle('hidden', !planExemption);
+  document.getElementById('planCardBody').classList.toggle('hidden', !!planExemption);
+  if (planExemption) {
+    document.getElementById('planExemptNotice').innerHTML =
+      `<span class="badge" style="background:#e2e8f0; color:var(--muted);">작성 제외</span>` +
+      `<div class="muted" style="margin-top:8px;">이번 주는 귀가 계획 작성 제외 대상입니다.<br>사유: ${escapeHtml(planExemption.reason)} (${planExemption.from} ~ ${planExemption.to})</div>`;
+    return;
+  }
+
+  const plan = loadPlan(fridayKey)[student.id] || {};
+  ['Y','N'].forEach(v => {
+    document.getElementById('opt-lunch-' + v).classList.toggle('picked', plan.lunch === v);
+    document.getElementById('opt-return-' + v).classList.toggle('picked', plan.willReturn === v);
+  });
+  document.getElementById('planSavedMsg').textContent = plan.updatedAt ? `마지막 저장: ${plan.updatedAt}` : '';
+}
+function pickPlanLunch(v) {
+  const session = getSession();
+  if (!session) return;
+  setStudentPlan(currentFridayKey(), session.userId, { lunch: v });
+  renderPlanCard(session.userId);
+}
+function pickPlanReturn(v) {
+  const session = getSession();
+  if (!session) return;
+  setStudentPlan(currentFridayKey(), session.userId, { willReturn: v });
+  renderPlanCard(session.userId);
 }
 function submitStudentStatus() {
   const session = getSession();
@@ -860,8 +1030,13 @@ function changeAdminPassword() {
 
 /* ===================== 귀교 현황 대시보드 (교사/관리자 공용) ===================== */
 const ALL_STATUSES = ['미도착','귀교','지각','미귀교'];
+const DASH_FILTER_STATUSES = ['미도착','귀교','지각','미귀교','제외'];
 let dashGradeFilter = '전체';
 let dashStatusFilter = '전체';
+// 제외 기간이면 '제외'를, 아니면 실제 제출 상태(없으면 '미도착')를 반환합니다.
+function effectiveState(student, status) {
+  return isExempt(student, viewDateKey) ? '제외' : (status[student.id]?.state || '미도착');
+}
 
 function dashboardHtml(idPrefix) {
   return `
@@ -884,7 +1059,7 @@ function dashboardHtml(idPrefix) {
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>학년</th><th>반</th><th>번호</th><th>이름</th><th>연락처</th><th>상태</th><th>제출시각</th><th>사유/예정시각</th><th>특이사항</th><th>액션</th></tr>
+            <tr><th>학년</th><th>반</th><th>번호</th><th>이름</th><th>연락처</th><th>상태</th><th>제출시각</th><th>사유/예정시각</th><th>특이사항</th><th>액션</th><th>작성 제외</th></tr>
           </thead>
           <tbody id="${idPrefix}TableBody"></tbody>
         </table>
@@ -904,13 +1079,14 @@ function renderDashAll(idPrefix) {
 function renderDashStats(idPrefix) {
   const students = loadJson(LS.students, []);
   const status = loadStatus(viewDateKey);
-  const count = s => students.filter(st => (status[st.id]?.state || '미도착') === s).length;
+  const count = s => students.filter(st => effectiveState(st, status) === s).length;
   document.getElementById(idPrefix + 'Stats').innerHTML = `
     <div class="stat"><div class="num">${students.length}</div><div class="label">전체</div></div>
     <div class="stat"><div class="num" style="color:var(--green)">${count('귀교')}</div><div class="label">귀교 완료</div></div>
     <div class="stat"><div class="num" style="color:var(--orange)">${count('지각')}</div><div class="label">지각</div></div>
     <div class="stat"><div class="num" style="color:var(--purple)">${count('미귀교')}</div><div class="label">미귀교</div></div>
     <div class="stat"><div class="num" style="color:var(--red)">${count('미도착')}</div><div class="label">미도착</div></div>
+    <div class="stat"><div class="num" style="color:var(--muted)">${count('제외')}</div><div class="label">작성 제외</div></div>
   `;
 }
 function renderChips(idPrefix) {
@@ -919,7 +1095,7 @@ function renderChips(idPrefix) {
   document.getElementById(idPrefix + 'GradeChips').innerHTML = grades.map(g => `
     <button class="chip ${dashGradeFilter == g ? 'active' : ''}" onclick="setGradeFilter('${idPrefix}','${g}')">${g === '전체' ? '전체' : g + '학년'}</button>
   `).join('');
-  const statuses = ['전체', ...ALL_STATUSES];
+  const statuses = ['전체', ...DASH_FILTER_STATUSES];
   document.getElementById(idPrefix + 'StatusChips').innerHTML = statuses.map(s => `
     <button class="status-chip ${dashStatusFilter === s ? 'active' : ''}" onclick="setStatusFilter('${idPrefix}','${s}')">${s}</button>
   `).join('');
@@ -935,13 +1111,14 @@ function renderDashTable(idPrefix) {
   let list = students.slice();
   if (dashGradeFilter !== '전체') list = list.filter(s => String(s.grade) === String(dashGradeFilter));
   if (q) list = list.filter(s => s.name.includes(q) || s.loginId.includes(q) || String(s.number).includes(q));
-  if (dashStatusFilter !== '전체') list = list.filter(s => (status[s.id]?.state || '미도착') === dashStatusFilter);
+  if (dashStatusFilter !== '전체') list = list.filter(s => effectiveState(s, status) === dashStatusFilter);
   list.sort((a,b) => a.grade - b.grade || a.ban - b.ban || a.number - b.number);
 
   const body = document.getElementById(idPrefix + 'TableBody');
   body.innerHTML = list.map(s => {
     const st = status[s.id] || {};
-    const state = st.state || '미도착';
+    const exemption = activeExemption(s, viewDateKey);
+    const state = exemption ? '제외' : (st.state || '미도착');
     return `
       <tr>
         <td>${s.grade}</td>
@@ -959,9 +1136,13 @@ function renderDashTable(idPrefix) {
             ${ALL_STATUSES.map(x => `<option value="${x}">${x}</option>`).join('')}
           </select>
         </td>
+        <td>
+          ${exemption ? `<span class="muted" style="font-size:12px;">${escapeHtml(exemption.reason)}<br>~${exemption.to}</span>` : ''}
+          <button class="secondary small" onclick="openExemptModal('${s.id}','${idPrefix}')">설정</button>
+        </td>
       </tr>
     `;
-  }).join('') || `<tr><td colspan="10" class="muted">해당 조건의 학생이 없습니다.</td></tr>`;
+  }).join('') || `<tr><td colspan="11" class="muted">해당 조건의 학생이 없습니다.</td></tr>`;
 }
 function setNote(studentId, note, idPrefix) {
   setStudentStatus(viewDateKey, studentId, { note });
@@ -977,7 +1158,8 @@ function exportCsv(idPrefix) {
   const rows = [['학년','반','번호','이름','연락처','상태','제출시각','사유','특이사항']];
   students.slice().sort((a,b) => a.grade - b.grade || a.ban - b.ban || a.number - b.number).forEach(s => {
     const st = status[s.id] || {};
-    rows.push([s.grade, s.ban, s.number, s.name, s.phone || '', st.state || '미도착', st.reportedAt || '', st.reason || '', st.note || '']);
+    const state = effectiveState(s, status);
+    rows.push([s.grade, s.ban, s.number, s.name, s.phone || '', state, st.reportedAt || '', st.reason || '', st.note || '']);
   });
   const csv = '﻿' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -988,13 +1170,231 @@ function exportCsv(idPrefix) {
   URL.revokeObjectURL(url);
 }
 
+/* ===================== 작성 제외 기간 모달 (교사/관리자 공용) ===================== */
+let exemptModalStudentId = null;
+let exemptModalIdPrefix = null;
+function openExemptModal(studentId, idPrefix) {
+  exemptModalStudentId = studentId;
+  exemptModalIdPrefix = idPrefix;
+  document.getElementById('exemptFrom').value = '';
+  document.getElementById('exemptTo').value = '';
+  document.getElementById('exemptError').textContent = '';
+  renderExemptModalList();
+  document.getElementById('exemptModal').classList.remove('hidden');
+}
+function closeExemptModal() {
+  document.getElementById('exemptModal').classList.add('hidden');
+  exemptModalStudentId = null;
+  exemptModalIdPrefix = null;
+}
+function renderExemptModalList() {
+  const students = loadJson(LS.students, []);
+  const student = students.find(s => s.id === exemptModalStudentId);
+  const listEl = document.getElementById('exemptModalList');
+  if (!student) { listEl.innerHTML = ''; return; }
+  document.getElementById('exemptModalTitle').textContent = `${student.name} — 작성 제외 기간`;
+  const exemptions = (student.exemptions || []).slice().sort((a,b) => a.from < b.from ? -1 : 1);
+  listEl.innerHTML = exemptions.length ? exemptions.map(e => `
+    <div class="row" style="justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border);">
+      <span>${escapeHtml(e.reason)} · ${e.from} ~ ${e.to}</span>
+      <button class="danger small" onclick="removeExemption('${e.id}')">삭제</button>
+    </div>
+  `).join('') : '<p class="muted">등록된 제외 기간이 없습니다.</p>';
+}
+function addExemption() {
+  const reason = document.getElementById('exemptReason').value;
+  const from = document.getElementById('exemptFrom').value;
+  const to = document.getElementById('exemptTo').value;
+  const errEl = document.getElementById('exemptError');
+  if (!from || !to) { errEl.textContent = '시작일과 종료일을 입력해주세요.'; return; }
+  if (from > to) { errEl.textContent = '종료일은 시작일보다 빠를 수 없습니다.'; return; }
+  errEl.textContent = '';
+  const students = loadJson(LS.students, []);
+  const student = students.find(s => s.id === exemptModalStudentId);
+  if (!student) return;
+  student.exemptions = student.exemptions || [];
+  student.exemptions.push({ id: 'ex_' + Date.now(), reason, from, to });
+  saveJson(LS.students, students);
+  backupAccounts();
+  document.getElementById('exemptFrom').value = '';
+  document.getElementById('exemptTo').value = '';
+  renderExemptModalList();
+  if (exemptModalIdPrefix) renderDashAll(exemptModalIdPrefix);
+}
+function removeExemption(exemptionId) {
+  const students = loadJson(LS.students, []);
+  const student = students.find(s => s.id === exemptModalStudentId);
+  if (!student) return;
+  student.exemptions = (student.exemptions || []).filter(e => e.id !== exemptionId);
+  saveJson(LS.students, students);
+  backupAccounts();
+  renderExemptModalList();
+  if (exemptModalIdPrefix) renderDashAll(exemptModalIdPrefix);
+}
+
+/* ===================== 귀가 계획 대시보드 (교사/관리자 공용) ===================== */
+let planGradeFilter = '전체';
+// 귀가일 계획(willReturn)과 그 다음 등교일 실제 상태를 비교합니다.
+function comparePlanStatus(willReturn, actualState) {
+  if (!willReturn) return { label: '계획 미입력', mismatch: false };
+  const returned = actualState === '귀교' || actualState === '지각';
+  if (willReturn === 'Y') {
+    if (returned) return { label: '✅ 계획대로', mismatch: false };
+    if (actualState === '미귀교') return { label: '⚠ 계획과 다름', mismatch: true };
+    return { label: '대기 중', mismatch: false };
+  }
+  if (returned) return { label: '⚠ 계획과 다름', mismatch: true };
+  return { label: '✅ 계획대로', mismatch: false };
+}
+function planDashboardHtml(idPrefix) {
+  return `
+    <div class="card">
+      <div class="row" style="justify-content: space-between; margin-bottom: 14px;">
+        <div class="row">
+          <label style="margin:0;">📅 귀가일(금) 선택</label>
+          <input type="date" id="${idPrefix}FridayInput" value="${planFridayKey}" style="width:auto;">
+          <button class="secondary small" onclick="loadPlanFriday('${idPrefix}')">🔄 불러오기</button>
+        </div>
+        <button class="secondary small" onclick="exportPlanCsv('${idPrefix}')">⬇ 엑셀(CSV) 내보내기</button>
+      </div>
+      <p class="muted" style="margin-top:-6px; margin-bottom:14px;">귀가일(금) 계획과, 그 다음 등교일(월) 실제 귀교 상태를 비교해 보여줍니다.</p>
+      <div class="stats" id="${idPrefix}Stats"></div>
+      <div class="search-box-wrap">
+        <label>🔍 학생 검색</label>
+        <input id="${idPrefix}Search" placeholder="이름·학번·아이디 검색..." oninput="renderPlanTable('${idPrefix}')">
+      </div>
+      <div class="row" style="margin-bottom:14px;" id="${idPrefix}GradeChips"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>학년</th><th>반</th><th>번호</th><th>이름</th><th>점심</th><th>귀교 예정</th><th>실제(월)</th><th>비교</th></tr>
+          </thead>
+          <tbody id="${idPrefix}TableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+function loadPlanFriday(idPrefix) {
+  planFridayKey = document.getElementById(idPrefix + 'FridayInput').value || currentFridayKey();
+  renderPlanDashAll(idPrefix);
+}
+function renderPlanDashAll(idPrefix) {
+  renderPlanStats(idPrefix);
+  renderPlanChips(idPrefix);
+  renderPlanTable(idPrefix);
+}
+function renderPlanStats(idPrefix) {
+  const students = loadJson(LS.students, []);
+  const plan = loadPlan(planFridayKey);
+  const actualStatus = loadStatus(mondayAfterFriday(planFridayKey));
+  let lunchY = 0, returnY = 0, mismatch = 0, notSubmitted = 0;
+  students.forEach(s => {
+    if (isExempt(s, planFridayKey)) return;
+    const p = plan[s.id] || {};
+    if (p.lunch === 'Y') lunchY++;
+    if (p.willReturn === 'Y') returnY++;
+    if (!p.willReturn) { notSubmitted++; return; }
+    if (comparePlanStatus(p.willReturn, actualStatus[s.id]?.state || null).mismatch) mismatch++;
+  });
+  document.getElementById(idPrefix + 'Stats').innerHTML = `
+    <div class="stat"><div class="num">${students.length}</div><div class="label">전체</div></div>
+    <div class="stat"><div class="num" style="color:var(--accent)">${lunchY}</div><div class="label">귀가일 점심 신청</div></div>
+    <div class="stat"><div class="num" style="color:var(--green)">${returnY}</div><div class="label">귀교 예정</div></div>
+    <div class="stat"><div class="num" style="color:var(--red)">${mismatch}</div><div class="label">계획과 다름</div></div>
+    <div class="stat"><div class="num" style="color:var(--muted)">${notSubmitted}</div><div class="label">계획 미입력</div></div>
+  `;
+}
+function renderPlanChips(idPrefix) {
+  const students = loadJson(LS.students, []);
+  const grades = ['전체', ...new Set(students.map(s => s.grade))].sort((a,b) => a==='전체'?-1:b==='전체'?1:a-b);
+  document.getElementById(idPrefix + 'GradeChips').innerHTML = grades.map(g => `
+    <button class="chip ${planGradeFilter == g ? 'active' : ''}" onclick="setPlanGradeFilter('${idPrefix}','${g}')">${g === '전체' ? '전체' : g + '학년'}</button>
+  `).join('');
+}
+function setPlanGradeFilter(idPrefix, g) { planGradeFilter = g; renderPlanDashAll(idPrefix); }
+function renderPlanTable(idPrefix) {
+  const q = (document.getElementById(idPrefix + 'Search')?.value || '').trim();
+  const students = loadJson(LS.students, []);
+  const plan = loadPlan(planFridayKey);
+  const actualStatus = loadStatus(mondayAfterFriday(planFridayKey));
+
+  let list = students.slice();
+  if (planGradeFilter !== '전체') list = list.filter(s => String(s.grade) === String(planGradeFilter));
+  if (q) list = list.filter(s => s.name.includes(q) || s.loginId.includes(q) || String(s.number).includes(q));
+  list.sort((a,b) => a.grade - b.grade || a.ban - b.ban || a.number - b.number);
+
+  const body = document.getElementById(idPrefix + 'TableBody');
+  body.innerHTML = list.map(s => {
+    const exemption = activeExemption(s, planFridayKey);
+    const p = plan[s.id] || {};
+    const actualState = actualStatus[s.id]?.state || null;
+    const cmp = exemption ? { label: '제외' } : comparePlanStatus(p.willReturn, actualState);
+    return `
+      <tr>
+        <td>${s.grade}</td>
+        <td>${s.ban}</td>
+        <td>${s.number}</td>
+        <td>${escapeHtml(s.name)}</td>
+        <td>${exemption ? '<span class="muted">제외</span>' : (p.lunch === 'Y' ? '먹음' : p.lunch === 'N' ? '안 먹음' : '<span class="muted">-</span>')}</td>
+        <td>${exemption ? '<span class="muted">제외</span>' : (p.willReturn === 'Y' ? '귀교함' : p.willReturn === 'N' ? '귀교 안 함' : '<span class="muted">-</span>')}</td>
+        <td>${actualState ? `<span class="badge s-${actualState}">${actualState}</span>` : '<span class="muted">-</span>'}</td>
+        <td style="font-weight:600; color:${cmp.mismatch ? 'var(--red)' : 'var(--text)'};">${cmp.label}</td>
+      </tr>
+    `;
+  }).join('') || `<tr><td colspan="8" class="muted">해당 조건의 학생이 없습니다.</td></tr>`;
+}
+function exportPlanCsv(idPrefix) {
+  const students = loadJson(LS.students, []);
+  const plan = loadPlan(planFridayKey);
+  const actualStatus = loadStatus(mondayAfterFriday(planFridayKey));
+  const rows = [['학년','반','번호','이름','점심','귀교예정','실제상태','비교']];
+  students.slice().sort((a,b) => a.grade - b.grade || a.ban - b.ban || a.number - b.number).forEach(s => {
+    if (isExempt(s, planFridayKey)) {
+      rows.push([s.grade, s.ban, s.number, s.name, '제외', '제외', '', '제외']);
+      return;
+    }
+    const p = plan[s.id] || {};
+    const actualState = actualStatus[s.id]?.state || '';
+    const cmp = comparePlanStatus(p.willReturn, actualState || null);
+    rows.push([s.grade, s.ban, s.number, s.name,
+      p.lunch === 'Y' ? '먹음' : p.lunch === 'N' ? '안 먹음' : '',
+      p.willReturn === 'Y' ? '귀교함' : p.willReturn === 'N' ? '귀교 안 함' : '',
+      actualState, cmp.label]);
+  });
+  const csv = '﻿' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `귀가계획_${planFridayKey}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function renderTeacherPlan() {
+  document.getElementById('teacherPlanWrap').innerHTML = planDashboardHtml('teacherPlan');
+  renderPlanDashAll('teacherPlan');
+}
+function switchTeacherTab(tab) {
+  document.getElementById('teacherTab-dash').classList.toggle('active', tab === 'dash');
+  document.getElementById('teacherTab-plan').classList.toggle('active', tab === 'plan');
+  document.getElementById('teacherDashboard').classList.toggle('hidden', tab !== 'dash');
+  document.getElementById('teacherPlanWrap').classList.toggle('hidden', tab !== 'plan');
+  if (tab === 'dash') renderDashAll('teacher');
+  if (tab === 'plan') renderTeacherPlan();
+}
+function renderAdminPlan() {
+  document.getElementById('adminPlanWrap').innerHTML = planDashboardHtml('adminPlan');
+  renderPlanDashAll('adminPlan');
+}
+
 /* ===================== 관리자: 학생/교사 계정 관리 ===================== */
 function switchAdminTab(tab) {
-  ['dash','students','teachers'].forEach(t => {
+  ['dash','plan','students','teachers'].forEach(t => {
     document.getElementById('adminTab-' + t).classList.toggle('active', t === tab);
     document.getElementById('admin' + capitalize(t) + 'Wrap').classList.toggle('hidden', t !== tab);
   });
   if (tab === 'dash') renderDashAll('adminDash');
+  if (tab === 'plan') renderAdminPlan();
   if (tab === 'students') renderAdminStudents();
   if (tab === 'teachers') renderAdminTeachers();
 }
