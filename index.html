@@ -419,7 +419,7 @@
    기기별 localStorage에 그대로 둡니다.)
    ===================================================================== */
 // 앱 버전: 선생님 요청사항 반영 시마다 CHANGELOG.md와 함께 올려주세요.
-const APP_VERSION = 'v1.1.1';
+const APP_VERSION = 'v1.2.0';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCuM7R7IkP-IE7y9t4Nl436rtDsHC9CymE",
@@ -446,7 +446,7 @@ const LS = {
 };
 
 // students/teachers/admins/status/plan은 메모리 캐시 + Firestore 실시간 리스너로 관리됩니다.
-const cache = { students: null, teachers: null, admins: null, status: {}, plan: {} };
+const cache = { students: null, teachers: null, admins: null, fridaySetting: null, status: {}, plan: {} };
 const statusListeners = {};
 const planListeners = {};
 
@@ -684,9 +684,32 @@ async function initAppData() {
     });
   }
 
+  // 이번 주 귀가일(기본값: 금요일)을 담는 설정 문서. 휴무일/학교장재량휴업일 등으로
+  // 귀가일이 금요일이 아닌 주에는 교사가 직접 날짜를 지정해둘 수 있습니다.
+  const fridayRef = db.collection('meta').doc('fridaySetting');
+  const fridaySnap = await fridayRef.get();
+  cache.fridaySetting = fridaySnap.exists ? fridaySnap.data() : { forWeek: null, date: null };
+  fridayRef.onSnapshot(s => {
+    cache.fridaySetting = s.exists ? s.data() : { forWeek: null, date: null };
+    onFridaySettingUpdate();
+  });
+
   backupAccounts();
   if (loadingEl) loadingEl.classList.add('hidden');
   renderApp();
+}
+// 이번 주 귀가일 설정이 다른 기기(교사)에서 바뀌었을 때, 보고 있는 화면만 갱신합니다.
+function onFridaySettingUpdate() {
+  const session = getSession();
+  if (!session) return;
+  if (session.role === 'student') renderPlanCard(session.userId);
+  else if (session.role === 'teacher' && document.getElementById('teacherTab-plan')?.classList.contains('active')) {
+    planFridayKey = currentFridayKey();
+    renderPlanDashAll('teacherPlan');
+  } else if (session.role === 'admin' && document.getElementById('adminTab-plan')?.classList.contains('active')) {
+    planFridayKey = currentFridayKey();
+    renderPlanDashAll('adminPlan');
+  }
 }
 
 /* ===================== 날짜 유틸 ===================== */
@@ -706,8 +729,9 @@ function addDaysToKey(dateKey, days) {
   dt.setDate(dt.getDate() + days);
   return dateKeyFromDate(dt);
 }
-// 오늘 기준 가장 가까운(지나지 않은) 귀가일(금요일)을 계산합니다. 오늘이 금요일이면 오늘, 주말이면 다음 주 금요일.
-function currentFridayKey() {
+// 오늘 기준 가장 가까운(지나지 않은) '기본' 귀가일(금요일)을 계산합니다. 오늘이 금요일이면 오늘, 주말이면 다음 주 금요일.
+// 이 값은 요일 계산만으로 정해지며, 실제 귀가일이 아니라 "이번 주가 언제인지"를 가리키는 기준 키로 쓰입니다.
+function naturalFridayKey() {
   const n = new Date();
   const day = n.getDay(); // 0=일 ... 5=금 6=토
   let diff = 5 - day;
@@ -715,6 +739,20 @@ function currentFridayKey() {
   n.setDate(n.getDate() + diff);
   return dateKeyFromDate(n);
 }
+// 실제로 사용할 귀가일. 기본값은 금요일이지만, 휴무일·학교장재량휴업일 등으로 이번 주(naturalFridayKey
+// 기준) 귀가일을 교사가 별도로 지정해두었다면 그 날짜를 대신 반환합니다. 다음 주가 되면 자동으로 기본값(금요일)으로 돌아옵니다.
+function currentFridayKey() {
+  const natural = naturalFridayKey();
+  const fs = cache.fridaySetting;
+  if (fs && fs.forWeek === natural && fs.date) return fs.date;
+  return natural;
+}
+function setFridayOverride(dateKey) {
+  const setting = { forWeek: naturalFridayKey(), date: dateKey || null };
+  cache.fridaySetting = setting;
+  db.collection('meta').doc('fridaySetting').set(setting);
+}
+function resetFridayOverride() { setFridayOverride(null); }
 // 귀가일(금요일) 기준 귀교를 확인하는 다음 등교일(월요일).
 function mondayAfterFriday(fridayKey) { return addDaysToKey(fridayKey, 3); }
 let viewDateKey = todayKey();
@@ -1249,15 +1287,29 @@ function comparePlanStatus(willReturn, actualState) {
 function planDashboardHtml(idPrefix) {
   return `
     <div class="card">
+      <div class="row" style="justify-content: space-between; align-items:flex-start;">
+        <div>
+          <label style="margin:0;">🗓 이번 주 귀가일</label>
+          <div class="muted" id="${idPrefix}FridaySettingInfo" style="margin-top:4px;"></div>
+        </div>
+        <div class="row">
+          <input type="date" id="${idPrefix}FridayOverrideInput" style="width:auto;">
+          <button class="secondary small" onclick="saveFridayOverride('${idPrefix}')">이 날짜로 변경</button>
+          <button class="secondary small" onclick="clearFridayOverride('${idPrefix}')">기본값(금요일)으로</button>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:10px; margin-bottom:0;">평소엔 자동으로 금요일이 귀가일이 됩니다. 휴무일·학교장재량휴업일 등으로 이번 주 귀가일이 금요일이 아니라면 여기서 날짜를 바꿔주세요. 학생 화면과 아래 표에 바로 반영됩니다.</p>
+    </div>
+    <div class="card">
       <div class="row" style="justify-content: space-between; margin-bottom: 14px;">
         <div class="row">
-          <label style="margin:0;">📅 귀가일(금) 선택</label>
+          <label style="margin:0;">📅 다른 주 기록 보기</label>
           <input type="date" id="${idPrefix}FridayInput" value="${planFridayKey}" style="width:auto;">
           <button class="secondary small" onclick="loadPlanFriday('${idPrefix}')">🔄 불러오기</button>
         </div>
         <button class="secondary small" onclick="exportPlanCsv('${idPrefix}')">⬇ 엑셀(CSV) 내보내기</button>
       </div>
-      <p class="muted" style="margin-top:-6px; margin-bottom:14px;">귀가일(금) 계획과, 그 다음 등교일(월) 실제 귀교 상태를 비교해 보여줍니다.</p>
+      <p class="muted" style="margin-top:-6px; margin-bottom:14px;">귀가일 계획과, 그 다음 등교일(귀가일+3일) 실제 귀교 상태를 비교해 보여줍니다.</p>
       <div class="stats" id="${idPrefix}Stats"></div>
       <div class="search-box-wrap">
         <label>🔍 학생 검색</label>
@@ -1279,7 +1331,31 @@ function loadPlanFriday(idPrefix) {
   planFridayKey = document.getElementById(idPrefix + 'FridayInput').value || currentFridayKey();
   renderPlanDashAll(idPrefix);
 }
+function renderFridaySettingInfo(idPrefix) {
+  const natural = naturalFridayKey();
+  const effective = currentFridayKey();
+  const infoEl = document.getElementById(idPrefix + 'FridaySettingInfo');
+  if (!infoEl) return;
+  infoEl.innerHTML = effective === natural
+    ? `기본값(금요일) 사용 중 — <b>${effective}</b>`
+    : `<span style="color:var(--orange); font-weight:600;">기본값(금요일 ${natural}) 대신 변경됨 — ${effective}</span>`;
+  const inputEl = document.getElementById(idPrefix + 'FridayOverrideInput');
+  if (inputEl) inputEl.value = effective;
+}
+function saveFridayOverride(idPrefix) {
+  const val = document.getElementById(idPrefix + 'FridayOverrideInput').value;
+  if (!val) { alert('변경할 날짜를 선택해주세요.'); return; }
+  setFridayOverride(val);
+  planFridayKey = currentFridayKey();
+  renderPlanDashAll(idPrefix);
+}
+function clearFridayOverride(idPrefix) {
+  resetFridayOverride();
+  planFridayKey = currentFridayKey();
+  renderPlanDashAll(idPrefix);
+}
 function renderPlanDashAll(idPrefix) {
+  renderFridaySettingInfo(idPrefix);
   renderPlanStats(idPrefix);
   renderPlanChips(idPrefix);
   renderPlanTable(idPrefix);
@@ -1371,6 +1447,7 @@ function exportPlanCsv(idPrefix) {
   URL.revokeObjectURL(url);
 }
 function renderTeacherPlan() {
+  planFridayKey = currentFridayKey();
   document.getElementById('teacherPlanWrap').innerHTML = planDashboardHtml('teacherPlan');
   renderPlanDashAll('teacherPlan');
 }
@@ -1383,6 +1460,7 @@ function switchTeacherTab(tab) {
   if (tab === 'plan') renderTeacherPlan();
 }
 function renderAdminPlan() {
+  planFridayKey = currentFridayKey();
   document.getElementById('adminPlanWrap').innerHTML = planDashboardHtml('adminPlan');
   renderPlanDashAll('adminPlan');
 }
