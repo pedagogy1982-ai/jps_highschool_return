@@ -122,6 +122,9 @@
   .stat { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
   .stat .num { font-size: 24px; font-weight: 700; }
   .stat .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .stat.clickable { cursor: pointer; user-select: none; }
+  .stat.clickable:hover { border-color: var(--navy); background: #eef2ff; }
+  .stat.clickable.active { border-color: var(--navy); background: #eef2ff; box-shadow: 0 0 0 2px var(--navy) inset; }
   .search-box-wrap { background: #fff8ef; border: 1px solid #fcd9a8; border-left: 4px solid var(--orange); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
   .search-box-wrap label { color: var(--orange); font-weight: 600; }
   .hidden { display: none !important; }
@@ -306,7 +309,7 @@
   <div class="card">
     <div class="hidden" id="planExemptNotice" style="background:#f8fafc; border:1px dashed var(--border); border-radius:10px; padding:16px; text-align:center;"></div>
     <div id="planCardBody">
-    <label>🎒 이번 주 귀교 계획 (<span id="planFridayLabel"></span>)</label>
+    <label>🎒 이번 주 식수/귀교 계획 (<span id="planFridayLabel"></span>)</label>
     <p class="muted" style="margin-top:4px; margin-bottom:0;">월요일에 조사하며, 귀가일 전까지 언제든 다시 바꿀 수 있습니다.</p>
     <div class="field" style="margin-top:16px;">
       <label>귀가일 점심 식사</label>
@@ -350,7 +353,7 @@
   </div>
   <div class="tabbar" style="background:transparent; border:none; padding:0; margin-bottom:12px;">
     <button class="chip active" id="teacherTab-dash" onclick="switchTeacherTab('dash')" style="margin-right:8px;">📊 귀교 현황</button>
-    <button class="chip" id="teacherTab-plan" onclick="switchTeacherTab('plan')">📝 귀교 계획</button>
+    <button class="chip" id="teacherTab-plan" onclick="switchTeacherTab('plan')">📝 식수/귀교 계획</button>
   </div>
   <div id="teacherDashboard"></div>
   <div id="teacherPlanWrap" class="hidden"></div>
@@ -359,7 +362,7 @@
 <div class="container hidden" id="adminScreen">
   <div class="tabbar" style="background:transparent; border:none; padding:0; margin-bottom:12px;">
     <button class="chip active" id="adminTab-dash" onclick="switchAdminTab('dash')" style="margin-right:8px;">📊 귀교 현황</button>
-    <button class="chip" id="adminTab-plan" onclick="switchAdminTab('plan')" style="margin-right:8px;">📝 귀교 계획</button>
+    <button class="chip" id="adminTab-plan" onclick="switchAdminTab('plan')" style="margin-right:8px;">📝 식수/귀교 계획</button>
     <button class="chip" id="adminTab-students" onclick="switchAdminTab('students')" style="margin-right:8px;">👥 학생 계정</button>
     <button class="chip" id="adminTab-teachers" onclick="switchAdminTab('teachers')">🏫 교사 계정</button>
   </div>
@@ -392,7 +395,7 @@
 <div class="hidden" id="exemptModal" style="position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px;">
   <div class="card" style="max-width:380px; width:100%; max-height:85vh; overflow-y:auto;">
     <h2 id="exemptModalTitle">귀교현황 작성 제외 기간</h2>
-    <p class="muted" style="margin-top:-10px; margin-bottom:14px;">위탁·질병·기타 사유로 기숙사에 살지 않는 기간 동안, 이 학생은 귀교현황(및 귀교 계획)을 작성하지 않아도 됩니다.</p>
+    <p class="muted" style="margin-top:-10px; margin-bottom:14px;">위탁·질병·기타 사유로 기숙사에 살지 않는 기간 동안, 이 학생은 귀교현황(및 식수/귀교 계획)을 작성하지 않아도 됩니다.</p>
     <div id="exemptModalList" style="margin-bottom:14px;"></div>
     <div class="field"><label>사유</label>
       <select id="exemptReason"><option value="위탁">위탁</option><option value="질병">질병</option><option value="기타">기타</option></select>
@@ -419,7 +422,7 @@
    기기별 localStorage에 그대로 둡니다.)
    ===================================================================== */
 // 앱 버전: 선생님 요청사항 반영 시마다 CHANGELOG.md와 함께 올려주세요.
-const APP_VERSION = 'v1.2.0';
+const APP_VERSION = 'v1.2.1';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCuM7R7IkP-IE7y9t4Nl436rtDsHC9CymE",
@@ -501,7 +504,7 @@ function onStatusUpdate(dateKey) {
   else if (session.role === 'teacher' && dateKey === viewDateKey) renderDashAll('teacher');
   else if (session.role === 'admin' && dateKey === viewDateKey && document.getElementById('adminTab-dash')?.classList.contains('active')) renderDashAll('adminDash');
 }
-// 특정 귀가일(금요일)의 귀교 계획 문서를 실시간 구독합니다.
+// 특정 귀가일(금요일)의 식수/귀교 계획 문서를 실시간 구독합니다.
 function ensurePlanListener(fridayKey) {
   if (planListeners[fridayKey]) return;
   planListeners[fridayKey] = db.collection('plan').doc(fridayKey).onSnapshot(snap => {
@@ -906,7 +909,7 @@ function renderStudentScreen(userId) {
   renderPlanCard(userId);
 }
 
-/* ===================== 학생 화면: 귀교 계획 ===================== */
+/* ===================== 학생 화면: 식수/귀교 계획 ===================== */
 function renderPlanCard(userId) {
   const students = loadJson(LS.students, []);
   const student = students.find(s => s.id === userId);
@@ -920,7 +923,7 @@ function renderPlanCard(userId) {
   if (planExemption) {
     document.getElementById('planExemptNotice').innerHTML =
       `<span class="badge" style="background:#e2e8f0; color:var(--muted);">작성 제외</span>` +
-      `<div class="muted" style="margin-top:8px;">이번 주는 귀교 계획 작성 제외 대상입니다.<br>사유: ${escapeHtml(planExemption.reason)} (${planExemption.from} ~ ${planExemption.to})</div>`;
+      `<div class="muted" style="margin-top:8px;">이번 주는 식수/귀교 계획 작성 제외 대상입니다.<br>사유: ${escapeHtml(planExemption.reason)} (${planExemption.from} ~ ${planExemption.to})</div>`;
     return;
   }
 
@@ -1118,14 +1121,19 @@ function renderDashStats(idPrefix) {
   const students = loadJson(LS.students, []);
   const status = loadStatus(viewDateKey);
   const count = s => students.filter(st => effectiveState(st, status) === s).length;
-  document.getElementById(idPrefix + 'Stats').innerHTML = `
-    <div class="stat"><div class="num">${students.length}</div><div class="label">전체</div></div>
-    <div class="stat"><div class="num" style="color:var(--green)">${count('귀교')}</div><div class="label">귀교 완료</div></div>
-    <div class="stat"><div class="num" style="color:var(--orange)">${count('지각')}</div><div class="label">지각</div></div>
-    <div class="stat"><div class="num" style="color:var(--purple)">${count('미귀교')}</div><div class="label">미귀교</div></div>
-    <div class="stat"><div class="num" style="color:var(--red)">${count('미도착')}</div><div class="label">미도착</div></div>
-    <div class="stat"><div class="num" style="color:var(--muted)">${count('제외')}</div><div class="label">작성 제외</div></div>
+  const statTile = (filterValue, num, color, label) => `
+    <div class="stat clickable ${dashStatusFilter === filterValue ? 'active' : ''}" onclick="setStatusFilter('${idPrefix}','${filterValue}')">
+      <div class="num" style="color:${color}">${num}</div><div class="label">${label}</div>
+    </div>
   `;
+  document.getElementById(idPrefix + 'Stats').innerHTML = [
+    statTile('전체', students.length, 'inherit', '전체'),
+    statTile('귀교', count('귀교'), 'var(--green)', '귀교 완료'),
+    statTile('지각', count('지각'), 'var(--orange)', '지각'),
+    statTile('미귀교', count('미귀교'), 'var(--purple)', '미귀교'),
+    statTile('미도착', count('미도착'), 'var(--red)', '미도착'),
+    statTile('제외', count('제외'), 'var(--muted)', '작성 제외')
+  ].join('');
 }
 function renderChips(idPrefix) {
   const students = loadJson(LS.students, []);
@@ -1270,7 +1278,7 @@ function removeExemption(exemptionId) {
   if (exemptModalIdPrefix) renderDashAll(exemptModalIdPrefix);
 }
 
-/* ===================== 귀교 계획 대시보드 (교사/관리자 공용) ===================== */
+/* ===================== 식수/귀교 계획 대시보드 (교사/관리자 공용) ===================== */
 let planGradeFilter = '전체';
 // 귀가일 계획(willReturn)과 그 다음 등교일 실제 상태를 비교합니다.
 function comparePlanStatus(willReturn, actualState) {
@@ -1442,7 +1450,7 @@ function exportPlanCsv(idPrefix) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `귀교계획_${planFridayKey}.csv`;
+  a.href = url; a.download = `식수귀교계획_${planFridayKey}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
